@@ -134,8 +134,8 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
   const lower = transcript.toLowerCase();
 
   const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
-  const hasExplicitAdmission = /(admitted|admission|presented with|admitted with|admitted for|reason for admission)/i.test(lower);
-  const hasExplicitBackground = /(history of|known|background|past medical history|pmhx|prior|underlying)/i.test(lower);
+  const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|primary reason for admission|presented with chest pain|presented with syncope|presented with dyspnoea)/i.test(lower);
+  const hasExplicitBackground = /(history of|past medical history|pmhx|known to have|background of|prior pci|prior cabg|known hfrEF|known hf|known af|known ischaemic heart disease)/i.test(lower);
 
   return {
     ...note,

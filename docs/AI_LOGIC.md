@@ -46,6 +46,8 @@ Rule:
 - if the transcript does not explicitly state a demographic or admission fact, leave it blank
 - do not infer sex, age, or background disease from vibe or from later assessment wording
 - pronouns like `he` / `she` are currently treated as insufficient evidence for explicit demographics; the transcript should explicitly say male/female/man/woman before demographics are populated
+- admission reason is also treated strictly; generic ward-note context is not enough unless the transcript explicitly states why the patient was admitted/presented
+- cardiac background should only be retained when the transcript clearly uses history/background wording (for example `history of`, `known to have`, `prior PCI`, `PMHx`)
 
 ## Prompt strategy
 
