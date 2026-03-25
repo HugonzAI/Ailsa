@@ -4,16 +4,16 @@ export default function Home() {
   return (
     <main className="page">
       <section className="hero">
-        <span className="eyebrow">Ailsa MVP</span>
-        <h1 className="title">Transcript in. Draft SOAP note out.</h1>
+        <span className="eyebrow">Ailsa Cardiology MVP</span>
+        <h1 className="title">Transcript in. Cardiac ward note draft out.</h1>
         <p className="subtitle">
-          A deliberately simple first cut for GP consultation documentation. GCP hosts the app, Whisper handles transcription later, and a strong external model turns cleaned transcript text into a clinician-reviewable SOAP draft.
+          A deliberately focused first cut for New Zealand inpatient cardiology teams. Ailsa is being shaped around ward round notes, active problems, and plan-for-today drafting rather than generic outpatient SOAP summaries.
         </p>
 
         <div className="steps">
-          <div className="step"><strong>1. Capture</strong><span>Upload or record consultation audio, then convert it into transcript text.</span></div>
-          <div className="step"><strong>2. Draft</strong><span>Generate a conservative SOAP note that only uses facts present in the transcript.</span></div>
-          <div className="step"><strong>3. Review</strong><span>Edit the draft, then copy or export it into the clinician’s existing workflow.</span></div>
+          <div className="step"><strong>1. Capture</strong><span>Upload or record inpatient cardiology discussion, then convert it into transcript text.</span></div>
+          <div className="step"><strong>2. Draft</strong><span>Generate a conservative ward note using cardiology-specific structure, problems, and today-plan logic.</span></div>
+          <div className="step"><strong>3. Review</strong><span>Edit the draft, then hand it into ward workflow, handover, or discharge planning.</span></div>
         </div>
       </section>
 

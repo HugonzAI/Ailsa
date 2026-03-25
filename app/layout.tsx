@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Ailsa",
-  description: "AI clinical note MVP skeleton",
+  description: "AI cardiac inpatient note MVP skeleton",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

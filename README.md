@@ -1,11 +1,11 @@
 # Ailsa
 
-Ailsa is a lightweight MVP skeleton for generating clinician-reviewable SOAP note drafts from consultation transcripts.
+Ailsa is a lightweight MVP skeleton for generating clinician-reviewable cardiac inpatient note drafts from consultation transcripts.
 
 ## Current scope
 
 - paste transcript text or upload audio
-- generate a draft SOAP note
+- generate a draft cardiac ward note
 - review/edit the result in the browser
 - keep the architecture simple enough to iterate fast
 
@@ -14,7 +14,16 @@ Ailsa is a lightweight MVP skeleton for generating clinician-reviewable SOAP not
 - Next.js app router frontend + API routes
 - Whisper or compatible speech-to-text provider for transcription
 - Claude Sonnet as the primary note-generation model
-- GCP hosts the app; model inference stays external for MVP
+- Cloudflare Workers hosts the app; model inference stays external for MVP
+
+## Product direction
+
+Ailsa is being shaped for a New Zealand inpatient cardiology workflow first:
+
+- ward round note drafting
+- active problem list drafting
+- plan-for-today drafting
+- later, discharge summary support
 
 ## Scripts
 

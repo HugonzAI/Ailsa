@@ -3,24 +3,26 @@
 import { useMemo, useState } from "react";
 import type { EncounterType } from "@/lib/types";
 
-const demoTranscript = `Doctor: Hi Sarah, what brings you in today?\nPatient: I've had a sore throat and fever for two days.\nDoctor: Any cough or shortness of breath?\nPatient: Mild cough, no shortness of breath.\nDoctor: Any allergies to medication?\nPatient: No known drug allergies.\nDoctor: Your temperature is 38.3C and your throat looks red without exudate.\nDoctor: I think this is most likely a viral upper respiratory infection.\nDoctor: Rest, fluids, paracetamol as needed, and come back if symptoms worsen or breathing becomes difficult.`;
+const demoTranscript = `Registrar: Overnight she was less breathless and there was no further chest pain.\nNurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm.\nDoctor: Weight is down 1.2 kg, urine output was good, and fluid balance was negative 1.4 litres.\nDoctor: Blood pressure 108 over 64, heart rate 78, oxygen saturation 96 percent on room air, afebrile.\nDoctor: JVP is mildly elevated, bibasal crackles have improved, and there is only trace ankle oedema now.\nDoctor: Creatinine is stable, potassium is 4.2, troponin is flat, and yesterday's echo showed reduced LV systolic function with EF around 35 percent.\nDoctor: Overall this looks like improving decompensated HFrEF.\nDoctor: Continue IV furosemide today, monitor renal function and electrolytes, continue bisoprolol, and consider discharge in 24 to 48 hours if she keeps improving.`;
 
 const encounterOptions: EncounterType[] = [
-  "GP consultation",
-  "Follow-up visit",
-  "Urgent care",
-  "Telehealth",
-  "Specialist review",
+  "Cardiac ward round",
+  "Cardiac admission",
+  "Cardiac discharge",
+  "Chest pain / ACS review",
+  "Decompensated heart failure",
+  "AF / arrhythmia review",
+  "Syncope / presyncope review",
 ];
 
 export function NoteStudio() {
   const [transcript, setTranscript] = useState(demoTranscript);
-  const [output, setOutput] = useState("SOAP draft will appear here.");
+  const [output, setOutput] = useState("Cardiology ward note draft will appear here.");
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [encounterType, setEncounterType] = useState<EncounterType>("GP consultation");
+  const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
 
   const transcriptStats = useMemo(() => {
     const chars = transcript.trim().length;
@@ -49,7 +51,7 @@ export function NoteStudio() {
     } catch (error) {
       console.error(error);
       setStatus("Failed to generate note");
-      setOutput("Could not generate a SOAP note draft. Check API keys or keep MOCK_NOTE_GENERATION=1 while scaffolding.");
+      setOutput("Could not generate a cardiology ward note draft. Check API keys or keep MOCK_NOTE_GENERATION=1 while scaffolding.");
     } finally {
       setLoading(false);
     }
@@ -89,7 +91,7 @@ export function NoteStudio() {
   }
 
   async function copyOutput() {
-    if (!output || output === "SOAP draft will appear here.") {
+    if (!output || output === "Cardiology ward note draft will appear here.") {
       setStatus("Nothing to copy yet");
       return;
     }
@@ -106,8 +108,8 @@ export function NoteStudio() {
   return (
     <div className="grid">
       <section className="card">
-        <h2>Encounter workspace</h2>
-        <p>Upload audio or paste transcript text, choose the encounter type, then generate a conservative clinician-reviewable SOAP draft.</p>
+        <h2>Cardiology encounter workspace</h2>
+        <p>Upload audio or paste transcript text, choose the cardiac inpatient encounter type, then generate a conservative clinician-reviewable ward note draft.</p>
 
         <label className="label" htmlFor="encounterType">Encounter type</label>
         <select id="encounterType" className="input" value={encounterType} onChange={(e) => setEncounterType(e.target.value as EncounterType)}>
@@ -144,7 +146,7 @@ export function NoteStudio() {
 
         <div className="buttonRow">
           <button className="button" type="button" onClick={generate} disabled={loading}>
-            {loading ? "Generating…" : "Generate SOAP draft"}
+            {loading ? "Generating…" : "Generate ward note draft"}
           </button>
           <button className="buttonSecondary" type="button" onClick={() => setTranscript(demoTranscript)}>
             Reset demo transcript
@@ -154,8 +156,8 @@ export function NoteStudio() {
       </section>
 
       <section className="card">
-        <h2>Draft SOAP note</h2>
-        <p>This output is meant for clinician review first. Next iterations can add uncertainty flags, transcript evidence, and export modes.</p>
+        <h2>Draft cardiology ward note</h2>
+        <p>This output is meant for clinician review first. It is structured around inpatient cardiology workflow rather than a generic SOAP summary.</p>
         <div className="buttonRow compact">
           <button className="buttonSecondary" type="button" onClick={copyOutput}>Copy note</button>
           <button className="buttonSecondary" type="button" onClick={generate} disabled={loading}>Regenerate</button>

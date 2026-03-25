@@ -1,9 +1,11 @@
 export type EncounterType =
-  | "GP consultation"
-  | "Follow-up visit"
-  | "Urgent care"
-  | "Telehealth"
-  | "Specialist review";
+  | "Cardiac ward round"
+  | "Cardiac admission"
+  | "Cardiac discharge"
+  | "Chest pain / ACS review"
+  | "Decompensated heart failure"
+  | "AF / arrhythmia review"
+  | "Syncope / presyncope review";
 
 export type NoteGenerationRequest = {
   transcript: string;
