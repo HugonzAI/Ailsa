@@ -227,6 +227,30 @@ function coerceEvidenceItems(value: unknown): EvidenceSupportItem[] {
     .filter((item) => item.claim || item.rationale);
 }
 
+function extractNextReview(transcript: string, currentValue: string) {
+  if (currentValue.trim()) return currentValue.trim();
+
+  const patterns = [
+    /review after ([^.\n]+)/i,
+    /follow(?:ing)? ([^.\n]+ results)/i,
+    /reassess ([^.\n]+)/i,
+    /review (tomorrow[^.\n]*)/i,
+    /(within 24(?: to 48)? hours[^.\n]*)/i,
+    /(24 to 48 hours[^.\n]*)/i,
+    /(pending investigations[^.\n]*)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = transcript.match(pattern);
+    if (match?.[1]) {
+      const value = match[0].trim().replace(/\s+/g, " ");
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+  }
+
+  return "";
+}
+
 export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
 
@@ -234,7 +258,7 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
   const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|primary reason for admission|presented with chest pain|presented with syncope|presented with dyspnoea)/i.test(lower);
   const hasExplicitBackground = /(history of|past medical history|pmhx|known to have|background of|prior pci|prior cabg|known hfre?f|known hf|known af|known ischaemic heart disease)/i.test(lower);
   const hasEscalationSignal = /(escalat|safety|concern|watch closely|unstable|review urgently|if deteriorates|if worsens)/i.test(lower);
-  const hasNextReviewSignal = /(review tomorrow|review later|next review|following results|after results|reassess tomorrow|within 24|24 to 48 hours|pending investigations)/i.test(lower);
+  const hasNextReviewSignal = /(review tomorrow|review later|next review|following results|after results|reassess tomorrow|within 24|24 to 48 hours|pending investigations|review after)/i.test(lower);
   const mentionGuidelineSource = /(guideline|evidence|acs|angina|heart failure|atrial fibrillation|arrhythmia|troponin|stress test|angiography|telemetry|ecg|echo)/i.test(lower);
 
   return {
@@ -244,12 +268,12 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
       explicitAdmissionReason: hasExplicitAdmission ? note.patientContext.explicitAdmissionReason : "",
       explicitCardiacBackground: hasExplicitBackground ? note.patientContext.explicitCardiacBackground : [],
     },
-    nextReview: hasNextReviewSignal ? note.nextReview : "",
+    nextReview: hasNextReviewSignal ? extractNextReview(transcript, note.nextReview) : "",
     escalationsSafetyConcerns: hasEscalationSignal ? note.escalationsSafetyConcerns : "",
     tasksAllocated: note.tasksAllocated
       .map((task) => ({
         ...task,
-        urgency: /(urgent|today|routine|stat|asap)/i.test(task.urgency) ? task.urgency : "",
+        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? task.urgency : "",
       }))
       .filter((task) => task.task),
     actionSummary: note.actionSummary.filter(Boolean),
