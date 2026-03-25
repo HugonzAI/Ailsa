@@ -106,6 +106,7 @@ Continue deepening Cardiac Inpatient mode:
 - improve ward note quality
 - improve handover/task extraction
 - add discharge summary mode
+- keep evidence support as a separate optional layer
 
 ### Priority 2
 Add Cardiology Consultant Letter mode:
@@ -113,6 +114,11 @@ Add Cardiology Consultant Letter mode:
 - define prompt
 - define UI mode switch
 - only then build generation flow
+
+### UI implementation note
+- visual design should be delegated to Stitch
+- the main UI structure should respect the product layers: clinical draft, workflow/handover, evidence support
+- avoid local ad-hoc dashboard styling drifting away from the product brief
 
 ---
 
