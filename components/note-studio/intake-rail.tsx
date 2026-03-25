@@ -52,8 +52,11 @@ function formatRecordingSeconds(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-const speakerFilterOrder: ("All" | TranscriptSpeaker)[] = [
+type SpeakerFilter = "All" | "Needs review" | TranscriptSpeaker;
+
+const speakerFilterOrder: SpeakerFilter[] = [
   "All",
+  "Needs review",
   "Doctor",
   "Patient",
   "Nurse",
@@ -63,6 +66,10 @@ const speakerFilterOrder: ("All" | TranscriptSpeaker)[] = [
   "Speaker 2",
   "Speaker 3",
 ];
+
+function needsReviewSpeaker(speaker: TranscriptSpeaker) {
+  return speaker === "Unknown" || speaker.startsWith("Speaker ");
+}
 
 export function IntakeRail({
   encounterType,
@@ -98,19 +105,27 @@ export function IntakeRail({
   onSpeakerLineTextChange,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
-  const [speakerFilter, setSpeakerFilter] = useState<"All" | TranscriptSpeaker>("All");
+  const [speakerFilter, setSpeakerFilter] = useState<SpeakerFilter>("Needs review");
 
   const speakerFilterCounts = useMemo(() => {
-    return speakerLines.reduce<Record<string, number>>((accumulator, line) => {
+    const counts = speakerLines.reduce<Record<string, number>>((accumulator, line) => {
       accumulator[line.speaker] = (accumulator[line.speaker] || 0) + 1;
       return accumulator;
     }, {});
+
+    counts["Needs review"] = speakerLines.filter((line) => needsReviewSpeaker(line.speaker)).length;
+
+    return counts;
   }, [speakerLines]);
 
   const filteredSpeakerLines = useMemo(() => {
     return speakerLines
       .map((line, index) => ({ line, index }))
-      .filter(({ line }) => speakerFilter === "All" || line.speaker === speakerFilter);
+      .filter(({ line }) => {
+        if (speakerFilter === "All") return true;
+        if (speakerFilter === "Needs review") return needsReviewSpeaker(line.speaker);
+        return line.speaker === speakerFilter;
+      });
   }, [speakerFilter, speakerLines]);
 
   const availableSpeakerFilters = useMemo(
@@ -258,7 +273,7 @@ export function IntakeRail({
                   <button
                     key={speaker}
                     type="button"
-                    className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}`}
+                    className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}${speaker === "Needs review" ? " needsReview" : ""}`}
                     onClick={() => setSpeakerFilter(speaker)}
                   >
                     <span>{speaker}</span>
@@ -267,33 +282,42 @@ export function IntakeRail({
                 );
               })}
             </div>
+            {speakerFilterCounts["Needs review"] ? (
+              <div className="speakerReviewHint">
+                Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first — they are most likely to need clinician correction.
+              </div>
+            ) : null}
             <div className="speakerLinesList">
-              {filteredSpeakerLines.map(({ line, index }) => (
-                <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}`}>
-                  <div className="speakerLineHeader">
-                    <select
-                      className="speakerLabelSelect"
-                      value={line.speaker}
-                      onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
-                    >
-                      <option value="Doctor">Doctor</option>
-                      <option value="Patient">Patient</option>
-                      <option value="Nurse">Nurse</option>
-                      <option value="Family">Family</option>
-                      <option value="Unknown">Unknown</option>
-                      <option value="Speaker 1">Speaker 1</option>
-                      <option value="Speaker 2">Speaker 2</option>
-                      <option value="Speaker 3">Speaker 3</option>
-                    </select>
+              {filteredSpeakerLines.length ? (
+                filteredSpeakerLines.map(({ line, index }) => (
+                  <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <div className="speakerLineHeader">
+                      <select
+                        className="speakerLabelSelect"
+                        value={line.speaker}
+                        onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
+                      >
+                        <option value="Doctor">Doctor</option>
+                        <option value="Patient">Patient</option>
+                        <option value="Nurse">Nurse</option>
+                        <option value="Family">Family</option>
+                        <option value="Unknown">Unknown</option>
+                        <option value="Speaker 1">Speaker 1</option>
+                        <option value="Speaker 2">Speaker 2</option>
+                        <option value="Speaker 3">Speaker 3</option>
+                      </select>
+                    </div>
+                    <textarea
+                      className="speakerLineTextEditor"
+                      value={line.text}
+                      onChange={(e) => onSpeakerLineTextChange(index, e.target.value)}
+                      rows={3}
+                    />
                   </div>
-                  <textarea
-                    className="speakerLineTextEditor"
-                    value={line.text}
-                    onChange={(e) => onSpeakerLineTextChange(index, e.target.value)}
-                    rows={3}
-                  />
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="speakerEmptyState">No transcript lines match this filter.</div>
+              )}
             </div>
           </div>
         ) : null}
