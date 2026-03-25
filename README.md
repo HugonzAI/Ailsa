@@ -23,6 +23,8 @@ npm install
 npm run dev
 npm run typecheck
 npm run build
+npm run preview
+npm run deploy
 ```
 
 ## Environment
@@ -51,3 +53,30 @@ To enable Whisper transcription:
 3. Upload an audio file in the UI
 
 While scaffolding, `MOCK_TRANSCRIPTION=1` keeps the product flow usable without an external transcription dependency.
+
+## Cloudflare Workers deployment
+
+This project is prepared for Cloudflare Workers via OpenNext.
+
+### Local preview in Workers runtime
+
+```bash
+npm run preview
+```
+
+### Deploy
+
+```bash
+npm run deploy
+```
+
+### Required Cloudflare build/runtime vars
+
+Set these in Cloudflare when you want real providers instead of mocks:
+
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `MOCK_TRANSCRIPTION=0`
+- `MOCK_NOTE_GENERATION=0`
+
+For local Workers preview, `.dev.vars` currently keeps both mock flags enabled.
