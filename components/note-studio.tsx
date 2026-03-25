@@ -157,7 +157,7 @@ export function NoteStudio() {
 
       <section className="card">
         <h2>Draft cardiology ward note</h2>
-        <p>This output is meant for clinician review first. It is structured around inpatient cardiology workflow rather than a generic SOAP summary.</p>
+        <p>This output is meant for clinician review first. The current target style is a concise NZ inpatient cardiology ward note rather than a generic polished summary.</p>
         <div className="buttonRow compact">
           <button className="buttonSecondary" type="button" onClick={copyOutput}>Copy note</button>
           <button className="buttonSecondary" type="button" onClick={generate} disabled={loading}>Regenerate</button>
