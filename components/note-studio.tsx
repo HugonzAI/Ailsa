@@ -548,20 +548,50 @@ export function NoteStudio() {
       return;
     }
 
-    const tightened = output
-      .replace(/\bOverall\b[:,]?\s*/g, "")
-      .replace(/\bThis (looks|appears) like\b/gi, "")
-      .replace(/\bresponding to diuresis with\b/gi, "improving with diuresis and")
-      .replace(/\bin the setting of\b/gi, "with")
-      .replace(/\bwith improvement in\b/gi, "improved")
-      .replace(/\n{3,}/g, "\n\n")
-      .split("\n")
-      .map((line) => line.replace(/\s{2,}/g, " ").replace(/[.;:,\s]+$/g, "").trim())
-      .filter((line, index, all) => line && all.findIndex((candidate) => candidate.toLowerCase() === line.toLowerCase()) === index)
-      .join("\n");
+    const tidyLines = (text: string) =>
+      text
+        .replace(/\n{3,}/g, "\n\n")
+        .split("\n")
+        .map((line) => line.replace(/\s{2,}/g, " ").replace(/[.;:,\s]+$/g, "").trim())
+        .filter((line, index, all) => line && all.findIndex((candidate) => candidate.toLowerCase() === line.toLowerCase()) === index)
+        .join("\n");
+
+    let tightened = output;
+    let nextStatus = "Draft refined";
+
+    if (structured.documentType === "cardiology_consultant_letter") {
+      tightened = tidyLines(
+        output
+          .replace(/\bI had the pleasure of seeing this patient today\.?\s*/gi, "Seen today for cardiology review.\n")
+          .replace(/\bThey are a pleasant individual that was referred for cardiac assessment\.?\s*/gi, "")
+          .replace(/\bThank you for the privilege of allowing me to participate in this patient's care\.?\s*/gi, "")
+          .replace(/\bFeel free to reach out directly if any questions or concerns\.?\s*/gi, "")
+          .replace(/\bReview of systems is otherwise non-contributory\.?\s*/gi, "")
+          .replace(/\bNone known\b/gi, "None known")
+      );
+      nextStatus = "Consultant letter refined for specialist tone";
+    } else if (structured.documentType === "cardiac_discharge_summary") {
+      tightened = tidyLines(
+        output
+          .replace(/\bOver the admission\b/gi, "During admission")
+          .replace(/\bPlan on discharge is to\b/gi, "Discharge plan:")
+          .replace(/\bAdvise return for\b/gi, "Return if")
+      );
+      nextStatus = "Discharge summary tightened";
+    } else {
+      tightened = tidyLines(
+        output
+          .replace(/\bOverall\b[:,]?\s*/g, "")
+          .replace(/\bThis (looks|appears) like\b/gi, "")
+          .replace(/\bresponding to diuresis with\b/gi, "improving with diuresis and")
+          .replace(/\bin the setting of\b/gi, "with")
+          .replace(/\bwith improvement in\b/gi, "improved")
+      );
+      nextStatus = "Draft tightened for ward-note style";
+    }
 
     setOutput(tightened);
-    setStatus("Draft tightened for ward-note style");
+    setStatus(nextStatus);
   }
 
   function handleAccept(editable = false) {

@@ -48,6 +48,12 @@ export function DraftWorkspace({
 }: DraftWorkspaceProps) {
   const lastAuditEntry = auditLog[auditLog.length - 1] ?? null;
   const acceptedEntry = [...auditLog].reverse().find((entry) => entry.action === "accepted") ?? null;
+  const tightenLabel =
+    structured.documentType === "cardiology_consultant_letter"
+      ? "Refine consultant tone"
+      : structured.documentType === "cardiac_discharge_summary"
+        ? "Make discharge concise"
+        : "Tighten ward note";
 
   return (
     <section className="draftWorkspace">
@@ -198,7 +204,7 @@ export function DraftWorkspace({
           </div>
           <div className="footerActions">
             <button className="secondaryAction" type="button" onClick={onCopy}>Copy</button>
-            <button className="secondaryAction" type="button" onClick={onTighten} disabled={!hasStructuredContent}>Tighten note</button>
+            <button className="secondaryAction" type="button" onClick={onTighten} disabled={!hasStructuredContent}>{tightenLabel}</button>
             <button className="secondaryAction" type="button" onClick={onGenerate} disabled={loading || transcriptNeedsConfirmation}>Regenerate</button>
           </div>
         </footer>
