@@ -17,6 +17,7 @@ function buildMockTranscript(filename?: string) {
 export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("audio");
+  const language = formData.get("language");
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Audio file is required." }, { status: 400 });
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 
   try {
     const provider = new WhisperTranscribeProvider();
-    const transcript = await provider.transcribe(file, file.name);
+    const transcript = await provider.transcribe(file, file.name, typeof language === "string" ? language : undefined);
 
     const result: TranscriptionResponse = {
       transcript,

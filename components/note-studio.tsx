@@ -15,6 +15,13 @@ import {
 import { IntakeRail } from "@/components/note-studio/intake-rail";
 import { DraftWorkspace } from "@/components/note-studio/draft-workspace";
 import { SidecarRail } from "@/components/note-studio/sidecar-rail";
+import {
+  deleteStoredRecording,
+  getStoredRecording,
+  listStoredRecordings,
+  saveStoredRecording,
+  type StoredRecording,
+} from "@/components/note-studio/recording-store";
 
 type BrowserMediaRecorder = typeof MediaRecorder;
 
@@ -27,13 +34,7 @@ declare global {
 function getSupportedMimeType() {
   if (typeof window === "undefined" || !window.MediaRecorder) return "";
 
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/mpeg",
-  ];
-
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mpeg"];
   return candidates.find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || "";
 }
 
@@ -43,6 +44,29 @@ function getRecordedFileExtension(mimeType: string) {
   return "webm";
 }
 
+function makeStoredFilename(mimeType: string) {
+  return `ailsa-recording-${Date.now()}.${getRecordedFileExtension(mimeType)}`;
+}
+
+function chunkRecordingParts(parts: Blob[], maxPartsPerSegment = 20) {
+  const segments: Blob[][] = [];
+
+  for (let index = 0; index < parts.length; index += maxPartsPerSegment) {
+    segments.push(parts.slice(index, index + maxPartsPerSegment));
+  }
+
+  return segments;
+}
+
+async function transcribeAudioSegment(file: File, language: string) {
+  const formData = new FormData();
+  formData.append("audio", file);
+  formData.append("language", language);
+  const response = await fetch("/api/transcribe", { method: "POST", body: formData });
+  if (!response.ok) throw new Error(`Transcription failed with status ${response.status}`);
+  return (await response.json()) as { transcript: string; mode: string; filename?: string };
+}
+
 export function NoteStudio() {
   const [transcript, setTranscript] = useState(demoTranscript);
   const [output, setOutput] = useState(outputPlaceholder);
@@ -50,7 +74,9 @@ export function NoteStudio() {
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState("en");
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
   const [transcriptConfirmed, setTranscriptConfirmed] = useState(false);
@@ -59,18 +85,35 @@ export function NoteStudio() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [showEvidence, setShowEvidence] = useState(true);
   const [editableOutput, setEditableOutput] = useState(false);
+  const [recordings, setRecordings] = useState<StoredRecording[]>([]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingMimeTypeRef = useRef<string>("");
+  const activeRecordingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    void refreshRecordings();
+
     return () => {
       mediaRecorderRef.current?.stop?.();
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    if (!isRecording) {
+      setRecordingSeconds(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setRecordingSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isRecording]);
 
   const transcriptStats = useMemo(() => {
     const chars = transcript.trim().length;
@@ -107,6 +150,15 @@ export function NoteStudio() {
   const hasStructuredContent = output !== outputPlaceholder;
   const transcriptNeedsConfirmation = Boolean(selectedFile && !transcriptConfirmed);
   const showTranscriptBanner = Boolean(transcriptFromAudio && selectedFile && !transcriptConfirmed);
+
+  async function refreshRecordings() {
+    try {
+      const next = await listStoredRecordings();
+      setRecordings(next);
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   function appendAudit(action: AuditEntry["action"]) {
     setAuditLog((current) => [
@@ -153,26 +205,116 @@ export function NoteStudio() {
     }
   }
 
-  async function transcribeFile(file: File) {
-    setSelectedFile(file);
+  async function transcribeStoredRecording(recordingId: string) {
+    const stored = await getStoredRecording(recordingId);
+    if (!stored || stored.chunks.length === 0) {
+      setStatus("No saved audio found for this recording");
+      return;
+    }
+
+    const audioBlob = new Blob(stored.chunks, { type: stored.mimeType || "audio/webm" });
+    const fullFile = new File([audioBlob], stored.filename, { type: audioBlob.type || stored.mimeType || "audio/webm" });
+    const segments = chunkRecordingParts(stored.chunks, 20);
+
+    setSelectedFile(fullFile);
     setTranscribing(true);
-    setStatus(`Transcribing ${file.name}...`);
+    setStatus(`Transcribing ${stored.filename}...`);
+
+    await saveStoredRecording({
+      ...stored,
+      status: "transcribing",
+      updatedAt: new Date().toISOString(),
+      error: undefined,
+    });
+    await refreshRecordings();
+
     try {
-      const formData = new FormData();
-      formData.append("audio", file);
-      const response = await fetch("/api/transcribe", { method: "POST", body: formData });
-      if (!response.ok) throw new Error(`Transcription failed with status ${response.status}`);
-      const data = (await response.json()) as { transcript: string; mode: string; filename?: string };
-      setTranscript(data.transcript);
+      let transcriptParts: string[] = [];
+      let mode = "provider";
+
+      for (let index = 0; index < segments.length; index += 1) {
+        const segmentChunks = segments[index];
+        const segmentBlob = new Blob(segmentChunks, { type: stored.mimeType || "audio/webm" });
+        const segmentFile = new File(
+          [segmentBlob],
+          segments.length === 1
+            ? stored.filename
+            : stored.filename.replace(/\.(\w+)$/, `-part-${index + 1}.$1`),
+          { type: segmentBlob.type || stored.mimeType || "audio/webm" },
+        );
+
+        setStatus(
+          segments.length === 1
+            ? `Transcribing ${stored.filename}...`
+            : `Transcribing segment ${index + 1} of ${segments.length}...`,
+        );
+
+        const data = await transcribeAudioSegment(segmentFile, transcriptionLanguage);
+        mode = data.mode;
+        const cleaned = data.transcript.trim();
+        if (cleaned) transcriptParts.push(cleaned);
+
+        const partialTranscript = transcriptParts.join("\n\n").trim();
+        await saveStoredRecording({
+          ...stored,
+          status: "transcribing",
+          transcript: partialTranscript,
+          updatedAt: new Date().toISOString(),
+          error: undefined,
+        });
+        await refreshRecordings();
+      }
+
+      const combinedTranscript = transcriptParts.join("\n\n").trim();
+      setTranscript(combinedTranscript);
       setTranscriptConfirmed(false);
       setTranscriptFromAudio(true);
-      setStatus(`Transcript ready · ${data.mode} mode${data.filename ? ` · ${data.filename}` : ""}`);
+      setStatus(`Transcript ready · ${mode} mode${segments.length > 1 ? ` · ${segments.length} segments` : ""}`);
+
+      await saveStoredRecording({
+        ...stored,
+        status: "transcribed",
+        transcript: combinedTranscript,
+        updatedAt: new Date().toISOString(),
+        error: undefined,
+      });
     } catch (error) {
       console.error(error);
+      const message = error instanceof Error ? error.message : "Transcription failed";
       setStatus("Failed to transcribe audio");
+      await saveStoredRecording({
+        ...stored,
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+        error: message,
+      });
     } finally {
       setTranscribing(false);
+      await refreshRecordings();
     }
+  }
+
+  async function persistRecordingSnapshot(id: string, statusValue: StoredRecording["status"], chunks: Blob[], extra?: Partial<StoredRecording>) {
+    const existing = await getStoredRecording(id);
+    const now = new Date().toISOString();
+    const fallbackMimeType = recordingMimeTypeRef.current || "audio/webm";
+
+    const next: StoredRecording = {
+      id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      encounterType,
+      filename: existing?.filename || makeStoredFilename(fallbackMimeType),
+      mimeType: existing?.mimeType || fallbackMimeType,
+      status: statusValue,
+      chunks,
+      transcript: existing?.transcript,
+      error: existing?.error,
+      ...extra,
+    };
+
+    await saveStoredRecording(next);
+    await refreshRecordings();
   }
 
   async function handleRecordToggle() {
@@ -192,34 +334,60 @@ export function NoteStudio() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
       const recorder = mimeType ? new window.MediaRecorder(stream, { mimeType }) : new window.MediaRecorder(stream);
+      const recordingId = crypto.randomUUID();
+      const filename = makeStoredFilename(recorder.mimeType || mimeType || "audio/webm");
 
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
       recordedChunksRef.current = [];
       recordingMimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
+      activeRecordingIdRef.current = recordingId;
 
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      await saveStoredRecording({
+        id: recordingId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        encounterType,
+        filename,
+        mimeType: recordingMimeTypeRef.current,
+        status: "recording",
+        chunks: [],
+      });
+      await refreshRecordings();
+
+      recorder.addEventListener("dataavailable", async (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+          if (activeRecordingIdRef.current) {
+            await persistRecordingSnapshot(activeRecordingIdRef.current, "recording", [...recordedChunksRef.current], {
+              filename,
+              mimeType: recordingMimeTypeRef.current,
+            });
+          }
+        }
       });
 
       recorder.addEventListener("stop", async () => {
-        const blob = new Blob(recordedChunksRef.current, {
-          type: recordingMimeTypeRef.current || "audio/webm",
-        });
-        const extension = getRecordedFileExtension(recordingMimeTypeRef.current || "audio/webm");
-        const file = new File([blob], `ailsa-recording-${Date.now()}.${extension}`, {
-          type: blob.type || "audio/webm",
-        });
-
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
         mediaRecorderRef.current = null;
-        recordedChunksRef.current = [];
 
-        await transcribeFile(file);
+        const completedRecordingId = activeRecordingIdRef.current;
+        activeRecordingIdRef.current = null;
+
+        if (completedRecordingId) {
+          await persistRecordingSnapshot(completedRecordingId, "saved", [...recordedChunksRef.current], {
+            filename,
+            mimeType: recordingMimeTypeRef.current,
+          });
+          await transcribeStoredRecording(completedRecordingId);
+        }
+
+        recordedChunksRef.current = [];
       }, { once: true });
 
-      recorder.start();
+      recorder.start(2000);
+      setRecordingSeconds(0);
       setIsRecording(true);
       setStatus("Recording… tap again to stop");
     } catch (error) {
@@ -294,8 +462,10 @@ export function NoteStudio() {
           encounterType={encounterType}
           transcript={transcript}
           transcriptStats={transcriptStats}
+          transcriptionLanguage={transcriptionLanguage}
           transcribing={transcribing}
           isRecording={isRecording}
+          recordingSeconds={recordingSeconds}
           selectedFile={selectedFile}
           loading={loading}
           transcriptNeedsConfirmation={transcriptNeedsConfirmation}
@@ -303,18 +473,30 @@ export function NoteStudio() {
           showEvidence={showEvidence}
           status={status}
           structuredDocumentType={structured.documentType}
+          recordings={recordings}
           onEncounterChange={(next) => {
             setEncounterType(next);
             clearDraftState(next);
             setStatus("Idle");
             setReviewStatus(null);
           }}
+          onLanguageChange={setTranscriptionLanguage}
           onRecordToggle={handleRecordToggle}
           onAudioChange={(file) => {
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(false);
             if (file) {
-              void transcribeFile(file);
+              const uploaded: StoredRecording = {
+                id: crypto.randomUUID(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                encounterType,
+                filename: file.name,
+                mimeType: file.type || "audio/webm",
+                status: "saved",
+                chunks: [file],
+              };
+              void saveStoredRecording(uploaded).then(refreshRecordings).then(() => transcribeStoredRecording(uploaded.id));
               return;
             }
             setSelectedFile(null);
@@ -327,6 +509,20 @@ export function NoteStudio() {
           onGenerate={generate}
           onResetDemo={resetDemoTranscript}
           onToggleEvidence={() => setShowEvidence((current) => !current)}
+          onRetryRecording={(id) => {
+            void transcribeStoredRecording(id);
+          }}
+          onLoadRecordingTranscript={(id) => {
+            const found = recordings.find((item) => item.id === id);
+            if (!found?.transcript) return;
+            setTranscript(found.transcript);
+            setTranscriptConfirmed(false);
+            setTranscriptFromAudio(true);
+            setStatus(`Loaded saved transcript · ${found.filename}`);
+          }}
+          onDeleteRecording={(id) => {
+            void deleteStoredRecording(id).then(refreshRecordings);
+          }}
         />
 
         <DraftWorkspace

@@ -1,12 +1,15 @@
 import type { EncounterType } from "@/lib/types";
 import { encounterOptions } from "@/components/note-studio/constants";
+import type { StoredRecording } from "@/components/note-studio/recording-store";
 
 type IntakeRailProps = {
   encounterType: EncounterType;
   transcript: string;
   transcriptStats: { words: number; chars: number };
+  transcriptionLanguage: string;
   transcribing: boolean;
   isRecording: boolean;
+  recordingSeconds: number;
   selectedFile: File | null;
   loading: boolean;
   transcriptNeedsConfirmation: boolean;
@@ -14,7 +17,9 @@ type IntakeRailProps = {
   showEvidence: boolean;
   status: string;
   structuredDocumentType: string;
+  recordings: StoredRecording[];
   onEncounterChange: (next: EncounterType) => void;
+  onLanguageChange: (next: string) => void;
   onRecordToggle: () => void;
   onAudioChange: (file: File | null) => void;
   onTranscriptChange: (next: string) => void;
@@ -22,14 +27,34 @@ type IntakeRailProps = {
   onGenerate: () => void;
   onResetDemo: () => void;
   onToggleEvidence: () => void;
+  onRetryRecording: (id: string) => void;
+  onLoadRecordingTranscript: (id: string) => void;
+  onDeleteRecording: (id: string) => void;
 };
+
+function formatRecordingTime(value: string) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatRecordingSeconds(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
 
 export function IntakeRail({
   encounterType,
   transcript,
   transcriptStats,
+  transcriptionLanguage,
   transcribing,
   isRecording,
+  recordingSeconds,
   selectedFile,
   loading,
   transcriptNeedsConfirmation,
@@ -37,7 +62,9 @@ export function IntakeRail({
   showEvidence,
   status,
   structuredDocumentType,
+  recordings,
   onEncounterChange,
+  onLanguageChange,
   onRecordToggle,
   onAudioChange,
   onTranscriptChange,
@@ -45,6 +72,9 @@ export function IntakeRail({
   onGenerate,
   onResetDemo,
   onToggleEvidence,
+  onRetryRecording,
+  onLoadRecordingTranscript,
+  onDeleteRecording,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
 
@@ -68,9 +98,24 @@ export function IntakeRail({
           </select>
         </div>
 
-        <button className="recordingButton" type="button" onClick={onRecordToggle} disabled={transcribing}>
+        <div className="fieldGroup">
+          <label className="microLabel" htmlFor="transcriptionLanguage">Transcription Language</label>
+          <select
+            id="transcriptionLanguage"
+            className="stitchSelect"
+            value={transcriptionLanguage}
+            onChange={(e) => onLanguageChange(e.target.value)}
+          >
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="mi">Te Reo Māori</option>
+          </select>
+        </div>
+
+        <button className={`recordingButton${isRecording ? " isRecording" : ""}`} type="button" onClick={onRecordToggle} disabled={transcribing}>
           <div className="recordingIcon">●</div>
           <span>{recordingLabel}</span>
+          <span className="recordingMeta">{isRecording ? formatRecordingSeconds(recordingSeconds) : transcribing ? "processing audio" : "tap to begin"}</span>
         </button>
 
         <div className="fieldGroup">
@@ -83,6 +128,37 @@ export function IntakeRail({
             onChange={(e) => onAudioChange(e.target.files?.[0] ?? null)}
           />
         </div>
+
+        {recordings.length ? (
+          <div className="fieldGroup">
+            <label className="microLabel">Saved Recordings</label>
+            <div className="recordingsList">
+              {recordings.slice(0, 4).map((recording) => (
+                <div key={recording.id} className="recordingItem">
+                  <div className="recordingItemMeta">
+                    <strong>{recording.filename}</strong>
+                    <span>{recording.status} · {formatRecordingTime(recording.createdAt)}</span>
+                  </div>
+                  <div className="recordingItemActions">
+                    {recording.status === "failed" || recording.status === "saved" ? (
+                      <button type="button" className="recordingMiniButton" onClick={() => onRetryRecording(recording.id)}>
+                        Retry
+                      </button>
+                    ) : null}
+                    {recording.transcript ? (
+                      <button type="button" className="recordingMiniButton" onClick={() => onLoadRecordingTranscript(recording.id)}>
+                        Load
+                      </button>
+                    ) : null}
+                    <button type="button" className="recordingMiniButton danger" onClick={() => onDeleteRecording(recording.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="fieldGroup">
           <label className="microLabel" htmlFor="transcript">Manual Transcript</label>

@@ -4,7 +4,7 @@ import { getOpenAIApiKey } from "@/lib/openai";
 import type { TranscribeProvider } from "@/lib/providers/transcribeProvider";
 
 export class WhisperTranscribeProvider implements TranscribeProvider {
-  async transcribe(audio: Blob, filename: string) {
+  async transcribe(audio: Blob, filename: string, language?: string) {
     const apiKey = getOpenAIApiKey();
     if (!apiKey) {
       throw new Error("OPENAI_API_KEY is missing. Add it to .env.local or re-enable mock transcription.");
@@ -14,6 +14,7 @@ export class WhisperTranscribeProvider implements TranscribeProvider {
     form.append("file", audio, filename);
     form.append("model", "whisper-1");
     form.append("response_format", "text");
+    if (language) form.append("language", language);
 
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
