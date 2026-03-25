@@ -31,7 +31,10 @@ We moved away from pure free-text output because we need:
 
 ## Current schema
 
-Main type: `StructuredCardiacNote`
+Main output types:
+- `StructuredCardiacNote`
+- `StructuredConsultantLetter`
+- `StructuredDischargeSummary`
 
 Important design choices:
 - `patientContext` is now **fieldized** instead of one free-text string
@@ -79,11 +82,15 @@ Current strategy:
 - define the exact output shape in the prompt
 - explicitly ban guessing
 - explicitly ban inferred demographics/admission details
-- ask for registrar/house-officer style rather than polished summariser prose
-- bias the wording toward short ward-round shorthand, especially in observations, assessment, and plan
-- avoid turning the note into evidence-based counselling or guideline explanation inside the note body
+- route prompt/schema by document family:
+  - inpatient cardiac note -> short ward-round shorthand
+  - consultant letter -> more formal referrer-facing structure
+  - discharge summary -> admission-course / diagnosis / meds / follow-up oriented summary
+- avoid turning the note or letter body into evidence-based counselling or guideline explanation inside the main draft
 - allow a separate `evidenceSupport` layer for conservative rationale / guideline-context style support when the transcript justifies it
 - keep evidence support optional; if uncertain, prefer an empty evidence block over fake citations or fake confidence
+- post-process evidence items more aggressively than the main draft: weakly anchored or overly assertive evidence items should be dropped even if the model produced them
+- when evidence support is dropped, prefer adding a limitation note explaining that transcript detail was insufficient
 
 ## Current runtime files
 

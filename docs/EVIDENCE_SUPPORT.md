@@ -100,6 +100,18 @@ Evidence support is secondary.
 ### 4. If unsure, leave it empty
 A blank evidence block is safer than invented authority.
 
+### 5. Evidence needs transcript anchoring
+Do not keep an evidence item just because it sounds medically plausible.
+
+It should survive only when:
+- the transcript contains enough syndrome / investigation context
+- the claim remains conservative
+- the rationale can be tied back to what was actually said
+
+Otherwise:
+- clear the evidence item
+- prefer an evidence limitation note instead
+
 ---
 
 ## Product use

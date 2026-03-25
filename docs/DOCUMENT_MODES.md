@@ -41,6 +41,7 @@ Key schema traits:
 Current build status:
 - active
 - implemented in Ailsa MVP
+- includes separate discharge-summary document family support in progress
 
 ---
 

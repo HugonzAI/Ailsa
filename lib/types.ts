@@ -6,7 +6,10 @@ export type EncounterType =
   | "Chest pain / ACS review"
   | "Decompensated heart failure"
   | "AF / arrhythmia review"
-  | "Syncope / presyncope review";
+  | "Syncope / presyncope review"
+  | "Cardiology consultant letter";
+
+export type DocumentType = "cardiac_inpatient_note" | "cardiology_consultant_letter" | "cardiac_discharge_summary";
 
 export type NoteGenerationRequest = {
   transcript: string;
@@ -38,6 +41,7 @@ export type EvidenceSupportItem = {
 };
 
 export type StructuredCardiacNote = {
+  documentType: "cardiac_inpatient_note";
   patientContext: PatientContext;
   overnightEvents: string;
   symptoms: string;
@@ -56,9 +60,69 @@ export type StructuredCardiacNote = {
   evidenceLimitations: string[];
 };
 
+export type StructuredDischargeSummary = {
+  documentType: "cardiac_discharge_summary";
+  patientContext: PatientContext;
+  admissionCourse: string;
+  keyInvestigations: string[];
+  procedures: string[];
+  dischargeDiagnoses: string[];
+  medicationChanges: string[];
+  dischargeStatus: string;
+  followUpPlans: string[];
+  dischargeInstructions: string[];
+  pendingResults: string[];
+  escalationAdvice: string;
+  evidenceSupport: EvidenceSupportItem[];
+  evidenceLimitations: string[];
+};
+
+export type ConsultantReferralContext = {
+  referrer: string;
+  reasonForReferral: string;
+  visitType: string;
+  openingLine: string;
+};
+
+export type ConsultantMedicationGroups = {
+  antithrombotics: string[];
+  antihypertensives: string[];
+  heartFailureMedications: string[];
+  lipidLoweringAgents: string[];
+  otherMedications: string[];
+};
+
+export type ConsultantAssessmentPlanItem = {
+  problem: string;
+  assessment: string;
+  plan: string;
+};
+
+export type StructuredConsultantLetter = {
+  documentType: "cardiology_consultant_letter";
+  referralContext: ConsultantReferralContext;
+  cardiacRiskFactors: string[];
+  cardiacHistory: string[];
+  otherMedicalHistory: string[];
+  currentMedications: ConsultantMedicationGroups;
+  allergies: string[];
+  socialHistory: string[];
+  presentingHistory: string;
+  physicalExamination: string;
+  investigations: string[];
+  summary: string;
+  assessmentPlan: ConsultantAssessmentPlanItem[];
+  followUp: string;
+  closing: string;
+  evidenceSupport: EvidenceSupportItem[];
+  evidenceLimitations: string[];
+};
+
+export type StructuredOutput = StructuredCardiacNote | StructuredConsultantLetter | StructuredDischargeSummary;
+
 export type NoteGenerationResponse = {
   soapNote: string;
-  structured: StructuredCardiacNote;
+  structured: StructuredOutput;
   mode: "mock" | "provider";
 };
 

@@ -3,6 +3,7 @@
   --bg: #08111c;
   --panel: #101b2c;
   --panel-soft: #142238;
+  --panel-softer: #0f1a2b;
   --text: #eef4ff;
   --muted: #95a5bf;
   --line: rgba(255, 255, 255, 0.1);
@@ -22,7 +23,7 @@ button, textarea, input, select { font: inherit; }
 input[type="file"], .input, select {
   width: 100%;
   padding: 12px 14px;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--panel-soft);
   color: var(--text);
@@ -31,15 +32,24 @@ input[type="file"], .input, select {
 
 .page {
   min-height: 100vh;
-  width: min(1160px, calc(100% - 24px));
+  width: min(1480px, calc(100% - 28px));
   margin: 0 auto;
-  padding: 24px 0 48px;
+  padding: 22px 0 40px;
 }
 
-.hero {
-  padding: 28px;
+.shellPage {
+  display: grid;
+  gap: 18px;
+}
+
+.appHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px;
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 24px;
   background: linear-gradient(180deg, rgba(16,27,44,0.95), rgba(12,21,34,0.95));
   box-shadow: 0 24px 80px rgba(0,0,0,0.26);
 }
@@ -59,48 +69,91 @@ input[type="file"], .input, select {
   letter-spacing: 0.12em;
 }
 
-.title {
-  margin: 16px 0 10px;
-  font-size: clamp(2.4rem, 5vw, 4.8rem);
-  line-height: 0.94;
-  letter-spacing: -0.06em;
+.appTitle {
+  margin: 14px 0 8px;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
 }
 
-.subtitle {
+.appSubtitle {
+  margin: 0;
+  max-width: 68ch;
   color: var(--muted);
-  max-width: 52ch;
   line-height: 1.65;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 18px;
-  margin-top: 18px;
+.headerMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.card {
-  padding: 22px;
+.headerPill,
+.statPill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.workspaceShell {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) minmax(280px, 340px);
+  gap: 18px;
+  align-items: start;
+}
+
+.workspacePanel {
   border: 1px solid var(--line);
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(16,27,44,0.92), rgba(12,21,34,0.92));
 }
 
-.card h2 {
-  margin: 0 0 8px;
-  font-size: 1.05rem;
+.intakePanel,
+.railPanel,
+.draftPanel {
+  padding: 20px;
 }
 
-.card p {
-  margin: 0 0 14px;
+.workspaceRail {
+  display: grid;
+  gap: 18px;
+}
+
+.subduedPanel {
+  background: linear-gradient(180deg, rgba(14,24,39,0.92), rgba(10,18,31,0.92));
+}
+
+.panelHeader {
+  margin-bottom: 16px;
+}
+
+.panelHeader h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.panelHeader p {
+  margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.draftHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
 }
 
 .label {
   display: block;
   margin-bottom: 8px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -119,6 +172,10 @@ input[type="file"], .input, select {
   outline: none;
 }
 
+.intakeTextarea {
+  min-height: 320px;
+}
+
 .buttonRow {
   display: flex;
   gap: 12px;
@@ -128,25 +185,24 @@ input[type="file"], .input, select {
 
 .buttonRow.compact {
   margin-top: 0;
-  margin-bottom: 14px;
 }
 
-.button {
-  border: 0;
+.button,
+.buttonSecondary {
   border-radius: 999px;
   padding: 12px 18px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.button {
+  border: 0;
   background: linear-gradient(135deg, #95d7ff, #76c4ff);
   color: #08111c;
 }
 
 .buttonSecondary {
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 12px 18px;
-  font-weight: 700;
-  cursor: pointer;
   background: rgba(255,255,255,0.04);
   color: var(--text);
 }
@@ -157,6 +213,10 @@ input[type="file"], .input, select {
   font-size: 0.9rem;
 }
 
+.compactMeta {
+  margin-top: -2px;
+}
+
 .statsRow {
   display: flex;
   gap: 10px;
@@ -164,18 +224,9 @@ input[type="file"], .input, select {
   margin-top: 12px;
 }
 
-.statPill {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,0.04);
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
 .output {
   white-space: pre-wrap;
-  min-height: 360px;
+  min-height: 0;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -187,26 +238,15 @@ input[type="file"], .input, select {
   min-height: 0;
 }
 
-.steps {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+.draftPlaceholder {
+  min-height: 520px;
+  display: flex;
+  align-items: center;
 }
 
-.step {
-  padding: 16px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,0.03);
-}
-
-.step strong { display: block; margin-bottom: 6px; }
-.step span { color: var(--muted); line-height: 1.55; }
-
-.structuredGrid {
+.draftDocumentGrid,
+.railStack {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 12px;
 }
 
@@ -215,8 +255,34 @@ input[type="file"], .input, select {
   gap: 8px;
 }
 
+.headerActions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 1180px) {
+  .workspaceShell {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .workspaceRail {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 860px) {
-  .grid, .steps { grid-template-columns: 1fr; }
-  .page { width: min(1160px, calc(100% - 16px)); }
-  .hero, .card { padding: 18px; }
+  .page { width: min(1480px, calc(100% - 16px)); }
+  .appHeader,
+  .intakePanel,
+  .draftPanel,
+  .railPanel { padding: 18px; }
+  .appHeader,
+  .draftHeader,
+  .workspaceShell,
+  .workspaceRail { display: grid; }
+  .workspaceShell,
+  .workspaceRail { grid-template-columns: 1fr; }
+  .headerMeta,
+  .headerActions { justify-content: flex-start; }
+  .stackOnMobile { flex-direction: column; }
 }
