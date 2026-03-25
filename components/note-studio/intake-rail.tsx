@@ -1,4 +1,4 @@
-import type { EncounterType } from "@/lib/types";
+import type { EncounterType, TranscriptSpeakerLine } from "@/lib/types";
 import { encounterOptions } from "@/components/note-studio/constants";
 import type { StoredRecording } from "@/components/note-studio/recording-store";
 
@@ -18,18 +18,22 @@ type IntakeRailProps = {
   status: string;
   structuredDocumentType: string;
   recordings: StoredRecording[];
+  speakerLines: TranscriptSpeakerLine[];
   onEncounterChange: (next: EncounterType) => void;
   onLanguageChange: (next: string) => void;
   onRecordToggle: () => void;
   onAudioChange: (file: File | null) => void;
   onTranscriptChange: (next: string) => void;
   onConfirmTranscript: () => void;
+  onResetTranscriptReview: () => void;
   onGenerate: () => void;
   onResetDemo: () => void;
   onToggleEvidence: () => void;
   onRetryRecording: (id: string) => void;
   onLoadRecordingTranscript: (id: string) => void;
   onDeleteRecording: (id: string) => void;
+  onSpeakerLineChange: (index: number, speaker: TranscriptSpeakerLine["speaker"]) => void;
+  onSpeakerLineTextChange: (index: number, text: string) => void;
 };
 
 function formatRecordingTime(value: string) {
@@ -63,18 +67,22 @@ export function IntakeRail({
   status,
   structuredDocumentType,
   recordings,
+  speakerLines,
   onEncounterChange,
   onLanguageChange,
   onRecordToggle,
   onAudioChange,
   onTranscriptChange,
   onConfirmTranscript,
+  onResetTranscriptReview,
   onGenerate,
   onResetDemo,
   onToggleEvidence,
   onRetryRecording,
   onLoadRecordingTranscript,
   onDeleteRecording,
+  onSpeakerLineChange,
+  onSpeakerLineTextChange,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
 
@@ -184,7 +192,57 @@ export function IntakeRail({
         <div className="intakeStats">
           <span>{transcriptStats.words} words</span>
           <span>{transcriptStats.chars} chars</span>
+          {speakerLines.length ? <span>{speakerLines.length} speaker lines</span> : null}
+          {selectedFile ? (
+            <span className={transcriptNeedsConfirmation ? "transcriptReviewFlag pending" : "transcriptReviewFlag confirmed"}>
+              {transcriptNeedsConfirmation ? "Transcript review pending" : "Transcript reviewed"}
+            </span>
+          ) : null}
         </div>
+
+        {speakerLines.length ? (
+          <div className="fieldGroup">
+            <div className="speakerReviewHeader">
+              <label className="microLabel">Speaker-aware Transcript</label>
+              <div className="speakerReviewActions">
+                <button className="speakerReviewButton confirm" type="button" onClick={onConfirmTranscript}>
+                  Mark transcript reviewed
+                </button>
+                <button className="speakerReviewButton reset" type="button" onClick={onResetTranscriptReview}>
+                  Reset review
+                </button>
+              </div>
+            </div>
+            <div className="speakerLinesList">
+              {speakerLines.map((line, index) => (
+                <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <div className="speakerLineHeader">
+                    <select
+                      className="speakerLabelSelect"
+                      value={line.speaker}
+                      onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
+                    >
+                      <option value="Doctor">Doctor</option>
+                      <option value="Patient">Patient</option>
+                      <option value="Nurse">Nurse</option>
+                      <option value="Family">Family</option>
+                      <option value="Unknown">Unknown</option>
+                      <option value="Speaker 1">Speaker 1</option>
+                      <option value="Speaker 2">Speaker 2</option>
+                      <option value="Speaker 3">Speaker 3</option>
+                    </select>
+                  </div>
+                  <textarea
+                    className="speakerLineTextEditor"
+                    value={line.text}
+                    onChange={(e) => onSpeakerLineTextChange(index, e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <button className="primaryDarkButton" type="button" onClick={onGenerate} disabled={loading || transcriptNeedsConfirmation}>
           {loading

@@ -114,6 +114,11 @@ button { border: 0; background: none; }
 }
 .intakeStats { display:flex; gap:10px; flex-wrap:wrap; }
 .intakeStats span,.intakeFooterNav span { font-size:11px; color:var(--muted); }
+.transcriptReviewFlag {
+  display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+}
+.transcriptReviewFlag.pending { background:#fef3c7; color:#92400e; }
+.transcriptReviewFlag.confirmed { background:#dcfce7; color:#166534; }
 .intakeEvidenceToggle { margin-top:20px; padding-top:16px; border-top:1px solid rgba(203,213,225,0.35); }
 .intakeEvidenceButton {
   width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px 12px; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer;
@@ -137,6 +142,32 @@ button { border: 0; background: none; }
   padding:6px 10px; border-radius:999px; background:var(--surface-2); color:var(--muted); font-size:10px; font-weight:700; cursor:pointer;
 }
 .recordingMiniButton.danger { background:#fef2f2; color:#b91c1c; }
+.speakerReviewHeader {
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+}
+.speakerReviewActions { display:flex; gap:8px; flex-wrap:wrap; }
+.speakerReviewButton {
+  padding:8px 10px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer;
+}
+.speakerReviewButton.confirm { background:#dcfce7; color:#166534; }
+.speakerReviewButton.reset { background:#fff; border:1px solid rgba(203,213,225,0.6); color:var(--muted); }
+.speakerLinesList { display:grid; gap:8px; max-height:240px; overflow:auto; padding-right:4px; }
+.speakerLineCard { padding:10px 12px; border-radius:14px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:6px; }
+.speakerLineHeader strong { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
+.speakerLabelSelect {
+  width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(203,213,225,0.5);
+  background: #fff; font-size: 11px; font-weight: 700; color: var(--text);
+}
+.speakerLineText { font-size:12px; line-height:1.55; color:var(--text); }
+.speakerLineTextEditor {
+  width: 100%; min-height: 76px; resize: vertical; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(203,213,225,0.5); background: #fff; font-size: 12px; line-height: 1.55; color: var(--text);
+}
+.speaker-doctor { border-left:4px solid #2563eb; }
+.speaker-patient { border-left:4px solid #16a34a; }
+.speaker-nurse { border-left:4px solid #ca8a04; }
+.speaker-family { border-left:4px solid #9333ea; }
+.speaker-unknown,.speaker-speaker-1,.speaker-speaker-2,.speaker-speaker-3 { border-left:4px solid #94a3b8; }
 .intakeFooterNav { margin-top:auto; padding-top:20px; display:grid; gap:6px; }
 
 .draftWorkspace { flex:1; background:#fff; overflow-y:auto; position:relative; }

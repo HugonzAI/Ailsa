@@ -128,6 +128,7 @@ export function NoteStudio() {
   const [showEvidence, setShowEvidence] = useState(true);
   const [editableOutput, setEditableOutput] = useState(false);
   const [recordings, setRecordings] = useState<StoredRecording[]>([]);
+  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -258,6 +259,7 @@ export function NoteStudio() {
     const fullFile = new File([audioBlob], stored.filename, { type: audioBlob.type || stored.mimeType || "audio/webm" });
     const segments = chunkRecordingParts(stored.chunks, 20);
 
+    setCurrentRecordingId(recordingId);
     setSelectedFile(fullFile);
     setTranscribing(true);
     setStatus(`Transcribing ${stored.filename}...`);
@@ -467,9 +469,50 @@ export function NoteStudio() {
     else setTranscript(demoTranscript);
 
     setSpeakerLines([]);
+    setCurrentRecordingId(null);
     setSelectedFile(null);
     setTranscriptConfirmed(false);
     setTranscriptFromAudio(false);
+  }
+
+  function persistSpeakerLineEdits(next: TranscriptSpeakerLine[]) {
+    if (!currentRecordingId) return;
+
+    const existing = recordings.find((recording) => recording.id === currentRecordingId);
+    if (!existing) return;
+
+    const nextTranscript = next.map((line) => `${line.speaker}: ${line.text}`).join("\n");
+
+    void saveStoredRecording({
+      ...existing,
+      transcript: nextTranscript,
+      speakerLines: next,
+      updatedAt: new Date().toISOString(),
+    }).then(refreshRecordings);
+  }
+
+  function handleSpeakerLineChange(index: number, speaker: TranscriptSpeakerLine["speaker"]) {
+    setSpeakerLines((current) => {
+      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, speaker } : line));
+      persistSpeakerLineEdits(next);
+      setTranscript(next.map((item) => `${item.speaker}: ${item.text}`).join("\n"));
+      return next;
+    });
+    setTranscriptFromAudio(true);
+    setTranscriptConfirmed(false);
+    setStatus("Speaker labels updated — review transcript before generating");
+  }
+
+  function handleSpeakerLineTextChange(index: number, text: string) {
+    setSpeakerLines((current) => {
+      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, text } : line));
+      persistSpeakerLineEdits(next);
+      setTranscript(next.map((item) => `${item.speaker}: ${item.text}`).join("\n"));
+      return next;
+    });
+    setTranscriptFromAudio(true);
+    setTranscriptConfirmed(false);
+    setStatus("Transcript line edited — review before generating");
   }
 
   function handleAccept(editable = false) {
@@ -522,6 +565,7 @@ export function NoteStudio() {
           status={status}
           structuredDocumentType={structured.documentType}
           recordings={recordings}
+          speakerLines={speakerLines}
           onEncounterChange={(next) => {
             setEncounterType(next);
             clearDraftState(next);
@@ -547,6 +591,7 @@ export function NoteStudio() {
               void saveStoredRecording(uploaded).then(refreshRecordings).then(() => transcribeStoredRecording(uploaded.id));
               return;
             }
+            setCurrentRecordingId(null);
             setSelectedFile(null);
           }}
           onTranscriptChange={(next) => {
@@ -554,7 +599,14 @@ export function NoteStudio() {
             setSpeakerLines([]);
             if (selectedFile) setTranscriptConfirmed(false);
           }}
-          onConfirmTranscript={() => setTranscriptConfirmed(true)}
+          onConfirmTranscript={() => {
+            setTranscriptConfirmed(true);
+            setStatus("Transcript marked as clinician-reviewed");
+          }}
+          onResetTranscriptReview={() => {
+            setTranscriptConfirmed(false);
+            setStatus("Transcript review reset");
+          }}
           onGenerate={generate}
           onResetDemo={resetDemoTranscript}
           onToggleEvidence={() => setShowEvidence((current) => !current)}
@@ -564,6 +616,7 @@ export function NoteStudio() {
           onLoadRecordingTranscript={(id) => {
             const found = recordings.find((item) => item.id === id);
             if (!found?.transcript) return;
+            setCurrentRecordingId(id);
             setTranscript(found.transcript);
             setSpeakerLines(found.speakerLines || []);
             setTranscriptConfirmed(false);
@@ -571,8 +624,14 @@ export function NoteStudio() {
             setStatus(`Loaded saved transcript · ${found.filename}`);
           }}
           onDeleteRecording={(id) => {
+            if (currentRecordingId === id) {
+              setCurrentRecordingId(null);
+              setSpeakerLines([]);
+            }
             void deleteStoredRecording(id).then(refreshRecordings);
           }}
+          onSpeakerLineChange={handleSpeakerLineChange}
+          onSpeakerLineTextChange={handleSpeakerLineTextChange}
         />
 
         <DraftWorkspace
