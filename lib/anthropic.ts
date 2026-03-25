@@ -185,7 +185,10 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "- Keep strings compact, terse, and clinically styled",
     "- Prefer ward-round shorthand over polished explanatory prose",
     "- Main note sections should read like ward-note lines, not mini-paragraph explanations",
-    "- Avoid model-style filler such as 'responding to', 'in the setting of', 'with improvement in', unless truly necessary",
+    "- The note should feel easy for a busy doctor to scan quickly",
+    "- Prefer common readable shorthand, but do not force abbreviations if they make the line feel choppy or awkward",
+    "- Keep one clinical idea per line when possible; if a short sentence reads more naturally than a fragmented line, prefer the short sentence",
+    "- Avoid model-style filler such as 'responding to', 'in the setting of', 'with improvement in', 'favourable response', or reassuring/beautifying language unless truly necessary",
     "- Observations should read like compact monitoring data, not full sentences, when possible",
     "- Assessment should usually be one short clinically conservative summary line",
     "- activeProblems should be a short list of current cardiology problems",
@@ -203,7 +206,7 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "- patientContext should be especially strict: if not explicit in the transcript, leave it blank or partial rather than filling gaps",
     "- Good style examples: 'ADHF improving', 'Brief AF overnight, now SR', 'nil CP', 'Less SOB', 'Wt down 1.2 kg', 'Sats 96% RA', 'JVP mildly up', 'Bibasal crackles improved', 'Continue IV frusemide', 'Recheck U&E/Cr'",
     ...buildEncounterSpecificWardHints(encounterType),
-    "- Bad style examples: long explanatory sentences, duplicated reasoning, or guideline-style teaching prose inside the main note",
+    "- Bad style examples: long explanatory sentences, duplicated reasoning, guideline-style teaching prose, or beautifying phrases like 'doing well', 'favourable response', 'clinically stable' inside the main note",
     "",
     "Transcript:",
     transcript,
@@ -595,6 +598,11 @@ function compressWardPhrase(value: string) {
       .replace(/^diagnostic studies:\s*/i, "")
       .replace(/\bwith clinical and\b/gi, "and")
       .replace(/\bresponding to diuresis with\b/gi, "improving with diuresis and")
+      .replace(/\bfavou?rable response to\b/gi, "on")
+      .replace(/\bdoing well on\b/gi, "on")
+      .replace(/\bclinically stable\b/gi, "stable")
+      .replace(/\bsuitable for discharge\b/gi, "for discharge")
+      .replace(/\bif improvement continues\b/gi, "if improving")
       .replace(/\bin the setting of\b/gi, "with")
       .replace(/\bwith improvement in\b/gi, "improved")
       .replace(/\bthere is\b/gi, "")
@@ -821,8 +829,24 @@ function splitIntoWardBullets(value: string) {
     .join("\n");
 }
 
+function polishWardLine(value: string) {
+  const cleaned = stripTrailingPunctuation(
+    value
+      .replace(/^\s*(and|but)\s+/i, "")
+      .replace(/^,\s*/, "")
+      .replace(/\s+,/g, ",")
+      .replace(/\(\s+/g, "(")
+      .replace(/\s+\)/g, ")")
+      .replace(/\s{2,}/g, " ")
+      .trim(),
+  );
+
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 function compressProblems(items: string[]) {
-  return items.map((item) => compressWardPhrase(item)).filter(Boolean).slice(0, 5);
+  return items.map((item) => polishWardLine(compressWardPhrase(item))).filter(Boolean).slice(0, 5);
 }
 
 function normalizeFragment(value: string) {
@@ -849,7 +873,7 @@ function dedupeWardText(value: string, seen: string[]) {
     });
 
     if (!duplicate) {
-      kept.push(line);
+      kept.push(polishWardLine(line));
       seen.push(normalized);
     }
   }
@@ -932,20 +956,20 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
     keyInvestigations,
     assessment,
     activeProblems,
-    planToday: note.planToday.map((item) => applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan")).filter(Boolean).slice(0, 5),
+    planToday: note.planToday.map((item) => polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan"))).filter(Boolean).slice(0, 5),
     nextReview: hasNextReviewSignal ? extractNextReview(transcript, note.nextReview) : "",
     escalationsSafetyConcerns: hasEscalationSignal ? compressWardPhrase(note.escalationsSafetyConcerns) : "",
     tasksAllocated: note.tasksAllocated
       .map((task) => ({
         ...task,
-        task: applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(task.task), lower), encounterType, "plan"),
-        owner: compressWardPhrase(task.owner),
-        timing: applyEncounterAwareWardTone(applySyndromePlanPack(compressWardPhrase(task.timing), lower), encounterType, "plan"),
-        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? compressWardPhrase(task.urgency) : "",
+        task: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(task.task), lower), encounterType, "plan")),
+        owner: polishWardLine(compressWardPhrase(task.owner)),
+        timing: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressWardPhrase(task.timing), lower), encounterType, "plan")),
+        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? polishWardLine(compressWardPhrase(task.urgency)) : "",
       }))
       .filter((task) => task.task),
-    actionSummary: note.actionSummary.map((item) => applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan")).filter(Boolean).slice(0, 4),
-    dischargeConsiderations: compressWardPhrase(note.dischargeConsiderations),
+    actionSummary: note.actionSummary.map((item) => polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan"))).filter(Boolean).slice(0, 4),
+    dischargeConsiderations: polishWardLine(compressWardPhrase(note.dischargeConsiderations)),
     evidenceSupport,
     evidenceLimitations,
   };

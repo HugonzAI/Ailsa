@@ -1,0 +1,38 @@
+[
+  {
+    "name": "hf-ward-readability",
+    "encounterType": "HF review",
+    "targetDocumentType": "cardiac_inpatient_note",
+    "transcript": "Registrar: Overnight she was less breathless and there was no further chest pain. Nurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm. Doctor: Weight is down 1.2 kg, urine output was good, and fluid balance was negative 1.4 litres. Doctor: Blood pressure 108 over 64, heart rate 78, oxygen saturation 96 percent on room air, afebrile. Doctor: JVP is mildly elevated, bibasal crackles have improved, and there is only trace ankle oedema now. Doctor: Creatinine is stable, potassium is 4.2, troponin is flat, and yesterday's echo showed reduced LV systolic function with EF around 35 percent. Doctor: Overall this looks like improving decompensated HFrEF. Doctor: Continue IV furosemide today, monitor renal function and electrolytes, continue bisoprolol, and consider discharge in 24 to 48 hours if she keeps improving.",
+    "expect": {
+      "mustIncludeAny": ["ADHF", "HFrEF", "U&E", "Cr", "JVP", "wt", "FB", "SR"],
+      "mustAvoid": ["favourable response", "doing well", "clinically stable", "pleasant patient"],
+      "maxLineLength": 120,
+      "minDistinctPlanItems": 2
+    }
+  },
+  {
+    "name": "chest-pain-acs-readability",
+    "encounterType": "Chest pain",
+    "targetDocumentType": "cardiac_inpatient_note",
+    "transcript": "Doctor: Chest pain has improved since admission. Serial troponins have remained flat and there are no dynamic ECG changes. Blood pressure is stable and she is pain free currently. Doctor: Continue telemetry overnight, repeat ECG and troponins if recurrent pain, and discuss with cardiology if symptoms recur.",
+    "expect": {
+      "mustIncludeAny": ["CP", "ACS", "trops", "ECG", "Telemetry"],
+      "mustAvoid": ["favourable response", "doing well", "clinically stable", "reassuringly"],
+      "maxLineLength": 120,
+      "minDistinctPlanItems": 2
+    }
+  },
+  {
+    "name": "af-review-readability",
+    "encounterType": "AF review",
+    "targetDocumentType": "cardiac_inpatient_note",
+    "transcript": "Doctor: Brief atrial fibrillation with rapid ventricular response overnight. She is now back in sinus rhythm and feels better. Potassium is 4.3 and magnesium is 1.1. Continue bisoprolol, continue telemetry, and review anticoagulation with the consultant team.",
+    "expect": {
+      "mustIncludeAny": ["AF", "RVR", "SR", "Telemetry", "anticoagulation"],
+      "mustAvoid": ["favourable response", "doing well", "clinically stable", "reassuringly"],
+      "maxLineLength": 120,
+      "minDistinctPlanItems": 2
+    }
+  }
+]

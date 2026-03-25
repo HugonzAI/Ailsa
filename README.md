@@ -123,6 +123,7 @@ npm run dev
 npm run typecheck
 npm run build
 npm run regression
+npm run style-eval
 npm run preview
 npm run deploy
 ```
@@ -142,6 +143,23 @@ Fixtures live in:
 
 Runner lives in:
 - `scripts/run-regression.mjs`
+
+### Style eval
+
+`npm run style-eval` also expects a local dev server (same `AILSA_BASE_URL` convention as regression).
+
+It is a lightweight rule-based scorer for:
+- ward-note readability
+- cardiology shorthand presence
+- anti-beautification penalties
+- line-length / scanability checks
+- basic plan-density checks
+
+Fixtures live in:
+- `fixtures/style-eval-cases.json`
+
+Runner lives in:
+- `scripts/run-style-eval.mjs`
 
 ## Environment
 

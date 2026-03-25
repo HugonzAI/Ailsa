@@ -23,7 +23,7 @@ function buildMockStructuredNote(): StructuredCardiacNote {
     observations: "BP 108/64 | HR 78 | SpO2 96% RA | Afebrile | Wt down 1.2 kg | Fluid balance -1.4 L",
     examination: "JVP mildly elevated. Bibasal crackles improved. Trace peripheral oedema.",
     keyInvestigations: "Creatinine stable. K acceptable. Troponin flat. Echo with reduced LV systolic function.",
-    assessment: "Improving decompensated HFrEF with favourable response to IV diuresis. Brief AF overnight now back in sinus rhythm.",
+    assessment: "Improving decompensated HFrEF on IV diuresis. Brief AF overnight now back in sinus rhythm.",
     activeProblems: [
       "Decompensated HFrEF, improving on IV diuresis",
       "Brief paroxysmal AF overnight, currently in sinus rhythm",
@@ -37,9 +37,9 @@ function buildMockStructuredNote(): StructuredCardiacNote {
     ],
     tasksAllocated: [{ task: "U&E review", owner: "medical team", timing: "today", urgency: "" }],
     actionSummary: ["Continue IV diuresis", "Track renal function and electrolytes", "Review rhythm recurrence on telemetry"],
-    nextReview: "Review again tomorrow; consider discharge in 24–48 hours if stable.",
+    nextReview: "Review tomorrow; consider discharge in 24–48 hours if stable.",
     escalationsSafetyConcerns: "",
-    dischargeConsiderations: "Potential discharge in 24–48 hours if clinically stable with no further rhythm issues and ongoing response to treatment.",
+    dischargeConsiderations: "Possible discharge in 24–48 hours if stable with no further rhythm issues.",
     evidenceSupport: [
       {
         claim: "Current picture is consistent with improving decompensated HFrEF after diuresis.",
