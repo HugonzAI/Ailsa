@@ -6,6 +6,7 @@ type IntakeRailProps = {
   transcript: string;
   transcriptStats: { words: number; chars: number };
   transcribing: boolean;
+  isRecording: boolean;
   selectedFile: File | null;
   loading: boolean;
   transcriptNeedsConfirmation: boolean;
@@ -14,7 +15,7 @@ type IntakeRailProps = {
   status: string;
   structuredDocumentType: string;
   onEncounterChange: (next: EncounterType) => void;
-  onTranscribeAudio: () => void;
+  onRecordToggle: () => void;
   onAudioChange: (file: File | null) => void;
   onTranscriptChange: (next: string) => void;
   onConfirmTranscript: () => void;
@@ -28,6 +29,7 @@ export function IntakeRail({
   transcript,
   transcriptStats,
   transcribing,
+  isRecording,
   selectedFile,
   loading,
   transcriptNeedsConfirmation,
@@ -36,7 +38,7 @@ export function IntakeRail({
   status,
   structuredDocumentType,
   onEncounterChange,
-  onTranscribeAudio,
+  onRecordToggle,
   onAudioChange,
   onTranscriptChange,
   onConfirmTranscript,
@@ -44,6 +46,8 @@ export function IntakeRail({
   onResetDemo,
   onToggleEvidence,
 }: IntakeRailProps) {
+  const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
+
   return (
     <section className="intakeRail">
       <div className="intakeBlock">
@@ -64,9 +68,9 @@ export function IntakeRail({
           </select>
         </div>
 
-        <button className="recordingButton" type="button" onClick={onTranscribeAudio} disabled={transcribing}>
+        <button className="recordingButton" type="button" onClick={onRecordToggle} disabled={transcribing}>
           <div className="recordingIcon">●</div>
-          <span>{transcribing ? "Transcribing…" : "Start Recording"}</span>
+          <span>{recordingLabel}</span>
         </button>
 
         <div className="fieldGroup">

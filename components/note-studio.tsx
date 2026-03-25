@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EncounterType, StructuredOutput } from "@/lib/types";
 import {
   consultantDemoTranscript,
@@ -16,6 +16,33 @@ import { IntakeRail } from "@/components/note-studio/intake-rail";
 import { DraftWorkspace } from "@/components/note-studio/draft-workspace";
 import { SidecarRail } from "@/components/note-studio/sidecar-rail";
 
+type BrowserMediaRecorder = typeof MediaRecorder;
+
+declare global {
+  interface Window {
+    MediaRecorder?: BrowserMediaRecorder;
+  }
+}
+
+function getSupportedMimeType() {
+  if (typeof window === "undefined" || !window.MediaRecorder) return "";
+
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/mpeg",
+  ];
+
+  return candidates.find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || "";
+}
+
+function getRecordedFileExtension(mimeType: string) {
+  if (mimeType.includes("mp4")) return "m4a";
+  if (mimeType.includes("mpeg")) return "mp3";
+  return "webm";
+}
+
 export function NoteStudio() {
   const [transcript, setTranscript] = useState(demoTranscript);
   const [output, setOutput] = useState(outputPlaceholder);
@@ -23,6 +50,7 @@ export function NoteStudio() {
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
   const [transcriptConfirmed, setTranscriptConfirmed] = useState(false);
@@ -31,6 +59,18 @@ export function NoteStudio() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [showEvidence, setShowEvidence] = useState(true);
   const [editableOutput, setEditableOutput] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingMimeTypeRef = useRef<string>("");
+
+  useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stop?.();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   const transcriptStats = useMemo(() => {
     const chars = transcript.trim().length;
@@ -113,16 +153,13 @@ export function NoteStudio() {
     }
   }
 
-  async function transcribeAudio() {
-    if (!selectedFile) {
-      setStatus("Choose an audio file first");
-      return;
-    }
+  async function transcribeFile(file: File) {
+    setSelectedFile(file);
     setTranscribing(true);
-    setStatus(`Transcribing ${selectedFile.name}...`);
+    setStatus(`Transcribing ${file.name}...`);
     try {
       const formData = new FormData();
-      formData.append("audio", selectedFile);
+      formData.append("audio", file);
       const response = await fetch("/api/transcribe", { method: "POST", body: formData });
       if (!response.ok) throw new Error(`Transcription failed with status ${response.status}`);
       const data = (await response.json()) as { transcript: string; mode: string; filename?: string };
@@ -135,6 +172,63 @@ export function NoteStudio() {
       setStatus("Failed to transcribe audio");
     } finally {
       setTranscribing(false);
+    }
+  }
+
+  async function handleRecordToggle() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      setStatus("Processing recording...");
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setStatus("Browser recording is not supported on this device");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getSupportedMimeType();
+      const recorder = mimeType ? new window.MediaRecorder(stream, { mimeType }) : new window.MediaRecorder(stream);
+
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordedChunksRef.current = [];
+      recordingMimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
+
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      });
+
+      recorder.addEventListener("stop", async () => {
+        const blob = new Blob(recordedChunksRef.current, {
+          type: recordingMimeTypeRef.current || "audio/webm",
+        });
+        const extension = getRecordedFileExtension(recordingMimeTypeRef.current || "audio/webm");
+        const file = new File([blob], `ailsa-recording-${Date.now()}.${extension}`, {
+          type: blob.type || "audio/webm",
+        });
+
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordedChunksRef.current = [];
+
+        await transcribeFile(file);
+      }, { once: true });
+
+      recorder.start();
+      setIsRecording(true);
+      setStatus("Recording… tap again to stop");
+    } catch (error) {
+      console.error(error);
+      setStatus("Microphone access failed");
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
     }
   }
 
@@ -201,6 +295,7 @@ export function NoteStudio() {
           transcript={transcript}
           transcriptStats={transcriptStats}
           transcribing={transcribing}
+          isRecording={isRecording}
           selectedFile={selectedFile}
           loading={loading}
           transcriptNeedsConfirmation={transcriptNeedsConfirmation}
@@ -214,11 +309,15 @@ export function NoteStudio() {
             setStatus("Idle");
             setReviewStatus(null);
           }}
-          onTranscribeAudio={transcribeAudio}
+          onRecordToggle={handleRecordToggle}
           onAudioChange={(file) => {
-            setSelectedFile(file);
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(false);
+            if (file) {
+              void transcribeFile(file);
+              return;
+            }
+            setSelectedFile(null);
           }}
           onTranscriptChange={(next) => {
             setTranscript(next);
