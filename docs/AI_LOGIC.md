@@ -60,6 +60,8 @@ Current strategy:
 - explicitly ban guessing
 - explicitly ban inferred demographics/admission details
 - ask for registrar/house-officer style rather than polished summariser prose
+- bias the wording toward short ward-round shorthand, especially in observations, assessment, and plan
+- avoid turning the note into evidence-based counselling or guideline explanation inside the note body
 
 ## Current runtime files
 
