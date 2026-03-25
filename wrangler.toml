@@ -2,6 +2,8 @@ name = "ailsa"
 main = ".open-next/worker.js"
 compatibility_date = "2026-03-24"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
 
 [vars]
 MOCK_TRANSCRIPTION = "0"
@@ -11,3 +13,8 @@ ANTHROPIC_MODEL = "claude-sonnet-4-6"
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+[[routes]]
+pattern = "ailsa.co.nz"
+zone_name = "ailsa.co.nz"
+custom_domain = true

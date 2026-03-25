@@ -10,6 +10,7 @@ export type StoredRecording = {
   filename: string;
   mimeType: string;
   status: StoredRecordingStatus;
+  interrupted?: boolean;
   chunks: Blob[];
   transcript?: string;
   speakerLines?: TranscriptSpeakerLine[];
@@ -103,4 +104,26 @@ export async function deleteStoredRecording(id: string) {
       request.onerror = () => reject(request.error ?? new Error("Failed to delete recording"));
     }),
   );
+}
+
+export async function recoverInterruptedRecordings() {
+  const recordings = await listStoredRecordings();
+  const interrupted = recordings.filter((recording) => recording.status === "recording");
+
+  await Promise.all(
+    interrupted.map((recording) =>
+      saveStoredRecording({
+        ...recording,
+        status: recording.chunks.length > 0 ? "saved" : "failed",
+        interrupted: recording.chunks.length > 0,
+        updatedAt: new Date().toISOString(),
+        error:
+          recording.chunks.length > 0
+            ? "Recording interrupted before stop — recover and transcribe when ready."
+            : "Recording interrupted before any audio was saved.",
+      }),
+    ),
+  );
+
+  return interrupted.length;
 }

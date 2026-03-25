@@ -35,6 +35,7 @@ type IntakeRailProps = {
   onDeleteRecording: (id: string) => void;
   onSpeakerLineChange: (index: number, speaker: TranscriptSpeakerLine["speaker"]) => void;
   onSpeakerLineTextChange: (index: number, text: string) => void;
+  onSpeakerLineReviewToggle: (index: number) => void;
 };
 
 function formatRecordingTime(value: string) {
@@ -52,11 +53,35 @@ function formatRecordingSeconds(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-type SpeakerFilter = "All" | "Needs review" | TranscriptSpeaker;
+function getRecordingStatusLabel(recording: StoredRecording) {
+  if (recording.interrupted && recording.status === "saved") return "interrupted · recoverable";
+  if (recording.status === "saved") return "saved";
+  if (recording.status === "transcribed") return "transcribed";
+  if (recording.status === "transcribing") return "transcribing";
+  if (recording.status === "failed") return "failed";
+  return "recording";
+}
+
+function formatBytes(totalBytes: number) {
+  if (totalBytes < 1024 * 1024) return `${Math.max(1, Math.round(totalBytes / 1024))} KB cached`;
+  return `${(totalBytes / (1024 * 1024)).toFixed(1)} MB cached`;
+}
+
+function getRecordingStorageSummary(recording: StoredRecording) {
+  const totalBytes = recording.chunks.reduce((sum, chunk) => sum + chunk.size, 0);
+  const chunkCount = recording.chunks.length;
+  const chunkLabel = `${chunkCount} chunk${chunkCount === 1 ? "" : "s"}`;
+
+  if (totalBytes === 0) return chunkLabel;
+  return `${chunkLabel} · ${formatBytes(totalBytes)}`;
+}
+
+type SpeakerFilter = "All" | "Needs review" | "Unchecked" | TranscriptSpeaker;
 
 const speakerFilterOrder: SpeakerFilter[] = [
   "All",
   "Needs review",
+  "Unchecked",
   "Doctor",
   "Patient",
   "Nurse",
@@ -103,6 +128,7 @@ export function IntakeRail({
   onDeleteRecording,
   onSpeakerLineChange,
   onSpeakerLineTextChange,
+  onSpeakerLineReviewToggle,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
   const [speakerFilter, setSpeakerFilter] = useState<SpeakerFilter>("Needs review");
@@ -114,6 +140,7 @@ export function IntakeRail({
     }, {});
 
     counts["Needs review"] = speakerLines.filter((line) => needsReviewSpeaker(line.speaker)).length;
+    counts.Unchecked = speakerLines.filter((line) => !line.reviewed).length;
 
     return counts;
   }, [speakerLines]);
@@ -124,6 +151,7 @@ export function IntakeRail({
       .filter(({ line }) => {
         if (speakerFilter === "All") return true;
         if (speakerFilter === "Needs review") return needsReviewSpeaker(line.speaker);
+        if (speakerFilter === "Unchecked") return !line.reviewed;
         return line.speaker === speakerFilter;
       });
   }, [speakerFilter, speakerLines]);
@@ -194,16 +222,29 @@ export function IntakeRail({
           <div className="fieldGroup">
             <label className="microLabel">Saved Recordings</label>
             <div className="recordingsList">
-              {recordings.slice(0, 4).map((recording) => (
+              {[...recordings]
+                .sort((left, right) => Number(Boolean(right.interrupted)) - Number(Boolean(left.interrupted)))
+                .slice(0, 4)
+                .map((recording) => (
                 <div key={recording.id} className="recordingItem">
                   <div className="recordingItemMeta">
-                    <strong>{recording.filename}</strong>
-                    <span>{recording.status} · {formatRecordingTime(recording.createdAt)}</span>
+                    <div className="recordingItemTitleRow">
+                      <strong>{recording.filename}</strong>
+                      {recording.interrupted ? <span className="recordingRecoveryBadge">Recovered</span> : null}
+                    </div>
+                    <span>{getRecordingStatusLabel(recording)} · {formatRecordingTime(recording.createdAt)}</span>
+                    <span className="recordingStorageMeta">{getRecordingStorageSummary(recording)}</span>
+                    {recording.error ? <em className="recordingItemHint">{recording.error}</em> : null}
                   </div>
                   <div className="recordingItemActions">
+                    {recording.status === "recording" && recording.chunks.length > 0 ? (
+                      <button type="button" className="recordingMiniButton recover" onClick={() => onRetryRecording(recording.id)}>
+                        Recover now
+                      </button>
+                    ) : null}
                     {recording.status === "failed" || recording.status === "saved" ? (
-                      <button type="button" className="recordingMiniButton" onClick={() => onRetryRecording(recording.id)}>
-                        Retry
+                      <button type="button" className={`recordingMiniButton${recording.interrupted ? " recover" : ""}`} onClick={() => onRetryRecording(recording.id)}>
+                        {recording.interrupted ? "Continue transcription" : recording.status === "saved" ? "Transcribe" : "Retry"}
                       </button>
                     ) : null}
                     {recording.transcript ? (
@@ -282,6 +323,11 @@ export function IntakeRail({
                 );
               })}
             </div>
+            <div className="speakerReviewSummary">
+              <span>{speakerFilterCounts.Unchecked || 0} unchecked</span>
+              <span>{speakerLines.filter((line) => line.reviewed).length} reviewed</span>
+              {speakerFilterCounts["Needs review"] ? <span>{speakerFilterCounts["Needs review"]} uncertain</span> : null}
+            </div>
             {speakerFilterCounts["Needs review"] ? (
               <div className="speakerReviewHint">
                 Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first — they are most likely to need clinician correction.
@@ -290,7 +336,7 @@ export function IntakeRail({
             <div className="speakerLinesList">
               {filteredSpeakerLines.length ? (
                 filteredSpeakerLines.map(({ line, index }) => (
-                  <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}${line.reviewed ? " reviewed" : ""}`}>
                     <div className="speakerLineHeader">
                       <select
                         className="speakerLabelSelect"
@@ -306,6 +352,13 @@ export function IntakeRail({
                         <option value="Speaker 2">Speaker 2</option>
                         <option value="Speaker 3">Speaker 3</option>
                       </select>
+                      <button
+                        type="button"
+                        className={`speakerLineReviewToggle${line.reviewed ? " reviewed" : ""}`}
+                        onClick={() => onSpeakerLineReviewToggle(index)}
+                      >
+                        {line.reviewed ? "Reviewed" : "Mark checked"}
+                      </button>
                     </div>
                     <textarea
                       className="speakerLineTextEditor"

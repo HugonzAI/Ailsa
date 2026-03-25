@@ -138,9 +138,23 @@ That is why:
 - we keep tightening prompt wording
 - next likely step is additional post-processing / field-level sanitisation
 
+## Regression fixtures
+
+Representative regression transcripts now live in:
+- `fixtures/regression-cases.json`
+
+Local regression runner:
+- `npm run regression`
+
+Purpose:
+- keep document-family routing stable
+- catch prompt/schema drift across inpatient / consultant / discharge modes
+- make future prompt iteration less subjective
+- assert a small set of section-level expectations so regressions are not limited to documentType checks alone
+
 ## Next recommended steps
 
-1. Add post-processing sanitizers for high-risk patientContext fields
-2. Add discharge-summary-specific structured schema
-3. Add editable problem list UI
-4. Add comparison fixtures / regression tests using representative cardiac transcripts
+1. Add stronger regression fixtures for anti-hallucination edge cases
+2. Add editable problem list UI
+3. Expand regression assertions into more content-aware checks where safe
+4. Add real grounding / retrieval for evidence support when ready

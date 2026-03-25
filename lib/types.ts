@@ -131,6 +131,7 @@ export type TranscriptSpeaker = "Doctor" | "Patient" | "Nurse" | "Family" | "Unk
 export type TranscriptSpeakerLine = {
   speaker: TranscriptSpeaker;
   text: string;
+  reviewed?: boolean;
 };
 
 export type TranscriptionResponse = {

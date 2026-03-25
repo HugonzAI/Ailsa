@@ -1,0 +1,101 @@
+[
+  {
+    "name": "inpatient-hf-ward-round",
+    "encounterType": "Cardiac ward round",
+    "expectedDocumentType": "cardiac_inpatient_note",
+    "expectations": {
+      "nonEmpty": ["assessment", "observations", "nextReview"],
+      "empty": ["patientContext.explicitDemographics", "patientContext.explicitAdmissionReason", "escalationsSafetyConcerns"],
+      "minArrayLength": {
+        "activeProblems": 2,
+        "planToday": 2,
+        "tasksAllocated": 1,
+        "evidenceSupport": 1
+      }
+    },
+    "transcript": "Registrar: Overnight she was less breathless and there was no further chest pain.\nNurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm.\nDoctor: Weight is down 1.2 kg, urine output was good, and fluid balance was negative 1.4 litres.\nDoctor: Blood pressure 108 over 64, heart rate 78, oxygen saturation 96 percent on room air, afebrile.\nDoctor: JVP is mildly elevated, bibasal crackles have improved, and there is only trace ankle oedema now.\nDoctor: Creatinine is stable, potassium is 4.2, troponin is flat, and yesterday's echo showed reduced LV systolic function with EF around 35 percent.\nDoctor: Overall this looks like improving decompensated HFrEF.\nDoctor: Continue IV furosemide today, monitor renal function and electrolytes, continue bisoprolol, and consider discharge in 24 to 48 hours if she keeps improving."
+  },
+  {
+    "name": "consultant-angina-assessment",
+    "encounterType": "Cardiology consultant letter",
+    "expectedDocumentType": "cardiology_consultant_letter",
+    "expectations": {
+      "nonEmpty": ["presentingHistory", "summary", "followUp"],
+      "empty": ["allergies"],
+      "minArrayLength": {
+        "cardiacRiskFactors": 3,
+        "investigations": 2,
+        "assessmentPlan": 1,
+        "evidenceSupport": 1
+      }
+    },
+    "transcript": "Consultant: Referred by Dr Martinez for cardiac assessment of chest discomfort.\nConsultant: The patient reports 3 weeks of exertional chest pressure when climbing stairs, mowing the lawn, or rushing for the bus. Symptoms improve with rest after around 5 minutes.\nConsultant: Associated dyspnoea, diaphoresis, and intermittent left arm heaviness. One episode occurred at rest during emotional stress.\nConsultant: Background includes reflux and chronic low back pain. No known prior cardiac history.\nConsultant: Cardiovascular risk factors include hypertension, pre-diabetes, previous smoking, and family history of premature coronary artery disease.\nConsultant: Current medications are vitamins, ibuprofen as needed, and omeprazole regularly.\nConsultant: ECG and blood work were ordered today, with stress testing to be arranged. Overall this is concerning for possible angina. Follow up after stress test results."
+  },
+  {
+    "name": "discharge-hf-summary",
+    "encounterType": "Cardiac discharge",
+    "expectedDocumentType": "cardiac_discharge_summary",
+    "expectations": {
+      "nonEmpty": ["admissionCourse", "dischargeStatus", "escalationAdvice"],
+      "maxArrayLength": {
+        "pendingResults": 0
+      },
+      "minArrayLength": {
+        "dischargeDiagnoses": 2,
+        "followUpPlans": 1,
+        "medicationChanges": 1,
+        "evidenceSupport": 1
+      }
+    },
+    "transcript": "Doctor: Admitted with decompensated HFrEF and fluid overload. Over the admission she improved with IV diuresis and monitoring. Brief atrial fibrillation occurred overnight but settled.\nDoctor: Echo showed reduced LV systolic function with EF around 35 percent. Creatinine remained stable and troponin stayed flat.\nDoctor: She is now breathing comfortably on room air with improved JVP and minimal peripheral oedema.\nDoctor: Discharge diagnoses are decompensated HFrEF and brief paroxysmal atrial fibrillation.\nDoctor: Plan on discharge is to continue furosemide and bisoprolol, arrange cardiology follow up, and repeat renal function and electrolytes after discharge.\nDoctor: Advise return for worsening breathlessness, chest pain, palpitations, or recurrent fluid overload symptoms."
+  },
+  {
+    "name": "anti-hallucination-pronoun-only-inpatient",
+    "encounterType": "Cardiac ward round",
+    "expectedDocumentType": "cardiac_inpatient_note",
+    "expectations": {
+      "nonEmpty": ["assessment"],
+      "empty": ["patientContext.explicitDemographics", "patientContext.explicitAdmissionReason"],
+      "maxArrayLength": {
+        "patientContext.explicitCardiacBackground": 0,
+        "evidenceSupport": 0
+      },
+      "minArrayLength": {
+        "evidenceLimitations": 1
+      }
+    },
+    "transcript": "Doctor: She feels improved today and is less short of breath. Blood pressure is stable and there is less oedema. Continue current treatment and review tomorrow."
+  },
+  {
+    "name": "anti-hallucination-consultant-no-allergy-data",
+    "encounterType": "Cardiology consultant letter",
+    "expectedDocumentType": "cardiology_consultant_letter",
+    "expectations": {
+      "nonEmpty": ["presentingHistory"],
+      "empty": ["allergies", "followUp"],
+      "maxArrayLength": {
+        "evidenceSupport": 0
+      },
+      "minArrayLength": {
+        "evidenceLimitations": 1
+      }
+    },
+    "transcript": "Consultant: Seen for review of intermittent palpitations. Symptoms have been occurring over 2 weeks. No syncope. Examination performed."
+  },
+  {
+    "name": "anti-hallucination-discharge-no-pending-results",
+    "encounterType": "Cardiac discharge",
+    "expectedDocumentType": "cardiac_discharge_summary",
+    "expectations": {
+      "nonEmpty": ["admissionCourse"],
+      "maxArrayLength": {
+        "pendingResults": 0,
+        "evidenceSupport": 0
+      },
+      "minArrayLength": {
+        "evidenceLimitations": 1
+      }
+    },
+    "transcript": "Doctor: Admitted with chest pain. Symptoms settled and serial troponins were negative. She is clinically well for discharge with GP follow up. Return if recurrent chest pain."
+  }
+]

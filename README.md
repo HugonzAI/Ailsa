@@ -1,29 +1,116 @@
 # Ailsa
 
-Ailsa is a lightweight MVP skeleton for generating clinician-reviewable cardiac inpatient note drafts from consultation transcripts.
+Ailsa is a deployable AI documentation workspace for **New Zealand inpatient cardiology**.
 
-## Current scope
+It is no longer a generic SOAP demo. Current product direction is:
+- **cardiac inpatient / ward-round note drafting first**
+- **consultant letter drafting**
+- **cardiac discharge summary drafting**
+- browser-native clinical audio capture with conservative transcript handling
+- Cloudflare Workers deployment with real provider APIs
 
-- paste transcript text or upload audio
-- generate a draft cardiac ward note
-- review/edit the result in the browser
-- keep the architecture simple enough to iterate fast
+## Current product shape
 
-## Planned stack
+Ailsa currently includes:
 
-- Next.js app router frontend + API routes
-- Whisper or compatible speech-to-text provider for transcription
-- Claude Sonnet as the primary note-generation model
-- Cloudflare Workers hosts the app; model inference stays external for MVP
+- **3 document families**
+  - cardiac inpatient note
+  - cardiology consultant letter
+  - cardiac discharge summary
+- **mode-aware generation** with separate prompt / coercion / sanitization paths
+- **browser recording** via `MediaRecorder`
+- **audio upload** fallback
+- **IndexedDB local persistence** for recordings
+- **interrupted recording recovery** for recordings left behind by refresh / interruption
+- **segmented long-recording transcription**
+- **spoken language control**
+  - English
+  - 中文
+  - Te Reo Māori
+- **English downstream transcript output**
+  - English speech → faithful English transcription
+  - 中文 / Te Reo Māori speech → faithful English translation transcript
+- **speaker-aware transcript review**
+  - speaker label editing
+  - per-line text editing
+  - reviewed / unchecked state
+  - role filters including `Needs review`
+- **clinician review flow**
+  - transcript confirmation before generation
+  - draft accept / edit & accept / reject flow
+- **provider abstraction**
+  - note generation provider
+  - transcription provider
+- **conservative evidence layer** kept separate from the main note
+- **regression fixtures** for document routing and anti-hallucination checks
 
-## Product direction
+## Product principles
 
-Ailsa is being shaped for a New Zealand inpatient cardiology workflow first:
+Ailsa is being shaped around these rules:
 
-- ward round note drafting
-- active problem list drafting
-- plan-for-today drafting
-- later, discharge summary support
+- **NZ inpatient cardiology first**
+- **宁缺毋滥** — omission is better than hallucination
+- **main note first, support layer second**
+- **ward note should read like ward note**
+- **evidence should not pollute the main draft**
+- **recording/transcription is a core system, not a side feature**
+
+## Current note-writing direction
+
+Ailsa is actively being distilled against Heidi-style strengths, especially for inpatient notes:
+
+- shorter
+- tighter
+- ward-round shorthand
+- less model voice
+- fewer repeated points across sections
+- different reading flow for ward / consultant / discharge documents
+
+Current direction by document family:
+
+### Inpatient note
+- short, high-signal sections
+- `Overnight / Symptoms / Obs / Exam / Ix / Impression / Problems / Plan`
+- workflow, context, and evidence stay secondary / collapsible
+
+### Consultant letter
+- more formal specialist-letter tone
+- clearer consultant reading flow
+- supporting detail collapsed behind the main clinical story
+
+### Discharge summary
+- discharge-ready wording
+- emphasis on admission course, diagnoses, medication changes, follow-up, and instructions
+- secondary detail collapsed behind the main discharge content
+
+## Architecture
+
+### Frontend
+- Next.js App Router
+- React 19
+- document workspace UI in `components/note-studio*`
+
+### API routes
+- `app/api/generate-note/route.ts`
+- `app/api/transcribe/route.ts`
+
+### Core logic
+- `lib/anthropic.ts`
+- `lib/types.ts`
+- `lib/providers/*`
+
+### Audio / transcript review
+- `components/note-studio/recording-store.ts`
+- `components/note-studio/intake-rail.tsx`
+- `components/note-studio.tsx`
+
+## Important docs
+
+- `docs/AI_LOGIC.md`
+- `docs/DOCUMENT_MODES.md`
+- `docs/CONSULTANT_LETTER_SCHEMA.md`
+- `docs/EVIDENCE_SUPPORT.md`
+- `docs/STITCH_UI_BRIEF.md`
 
 ## Scripts
 
@@ -32,40 +119,45 @@ npm install
 npm run dev
 npm run typecheck
 npm run build
+npm run regression
 npm run preview
 npm run deploy
 ```
 
+### Regression
+
+`npm run regression` expects a local dev server at `http://127.0.0.1:3000` by default.
+
+It replays fixed transcripts against `/api/generate-note` and checks:
+- document family routing
+- selected non-empty / empty fields
+- selected array length expectations
+- anti-hallucination edge cases
+
+Fixtures live in:
+- `fixtures/regression-cases.json`
+
+Runner lives in:
+- `scripts/run-regression.mjs`
+
 ## Environment
 
-Copy `.env.example` to `.env.local` and fill keys when ready.
+Copy `.env.example` to `.env.local` for local development.
 
-For now the app works in mock mode if `MOCK_NOTE_GENERATION=1`.
+### Required provider keys for real mode
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 
-## Claude integration
+### Important runtime vars
+- `MOCK_TRANSCRIPTION=0`
+- `MOCK_NOTE_GENERATION=0`
+- `ANTHROPIC_MODEL=claude-sonnet-4-6`
 
-To enable real note generation:
+If mock flags are enabled, the app still works in scaffold/demo mode.
 
-1. Copy `.env.example` to `.env.local`
-2. Set `ANTHROPIC_API_KEY`
-3. Optionally set `MOCK_NOTE_GENERATION=0`
-4. Run `npm run dev`
+## Cloudflare deployment
 
-The API route will use Claude in provider mode when mock mode is disabled and a key is present.
-
-## Transcription integration
-
-To enable Whisper transcription:
-
-1. Set `OPENAI_API_KEY`
-2. Set `MOCK_TRANSCRIPTION=0`
-3. Upload an audio file in the UI
-
-While scaffolding, `MOCK_TRANSCRIPTION=1` keeps the product flow usable without an external transcription dependency.
-
-## Cloudflare Workers deployment
-
-This project is prepared for Cloudflare Workers via OpenNext.
+Ailsa is prepared for **Cloudflare Workers via OpenNext**.
 
 ### Local preview in Workers runtime
 
@@ -79,13 +171,28 @@ npm run preview
 npm run deploy
 ```
 
-### Required Cloudflare build/runtime vars
+### Current deployment stance
 
-Set these in Cloudflare when you want real providers instead of mocks:
+- prefer **CLI / OpenNext deploys** over relying on dashboard auto-builds
+- `workers.dev` is intentionally disabled
+- custom domain front door is:
+  - `https://ailsa.co.nz`
+- site is intended to stay behind **Cloudflare Access** during testing
 
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `MOCK_TRANSCRIPTION=0`
-- `MOCK_NOTE_GENERATION=0`
+## Notes on transcription behavior
 
-For local Workers preview, `.dev.vars` currently keeps both mock flags enabled.
+Ailsa deliberately keeps transcription conservative:
+
+- better `Unknown` than wrong `Doctor` / `Patient` / `Nurse`
+- no beautifying / summarizing / adding implied facts
+- clinician can manually correct speaker labels and transcript lines before generation
+- interrupted recordings should be recoverable and re-transcribable from local storage
+
+## Repo status
+
+This repo is under active product iteration. Main branch should stay aligned with:
+- current source code
+- current deployable path
+- current README / docs
+
+If behavior changes materially, update the docs in the repo rather than leaving the logic implicit.
