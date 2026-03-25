@@ -135,12 +135,19 @@ button { border: 0; background: none; }
   padding:10px 12px; border-radius:14px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:8px;
 }
 .recordingItemMeta { display:grid; gap:2px; }
+.recordingItemTitleRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .recordingItemMeta strong { font-size:12px; color:var(--text); }
 .recordingItemMeta span { font-size:11px; color:var(--muted); }
+.recordingStorageMeta { color:#64748b; }
+.recordingRecoveryBadge {
+  display:inline-flex; align-items:center; padding:3px 7px; border-radius:999px; background:#fffbeb; color:#92400e; font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+}
+.recordingItemHint { font-size:10px; color:#92400e; font-style:normal; }
 .recordingItemActions { display:flex; gap:8px; flex-wrap:wrap; }
 .recordingMiniButton {
   padding:6px 10px; border-radius:999px; background:var(--surface-2); color:var(--muted); font-size:10px; font-weight:700; cursor:pointer;
 }
+.recordingMiniButton.recover { background:#fffbeb; color:#92400e; }
 .recordingMiniButton.danger { background:#fef2f2; color:#b91c1c; }
 .speakerReviewHeader {
   display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
@@ -163,6 +170,10 @@ button { border: 0; background: none; }
 .speakerFilterChip.active strong { background:#dbeafe; color:#1d4ed8; }
 .speakerFilterChip.needsReview { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
 .speakerFilterChip.needsReview strong { background:#fef3c7; color:#92400e; }
+.speakerReviewSummary { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.speakerReviewSummary span {
+  display:inline-flex; align-items:center; padding:5px 8px; border-radius:999px; background:#f8fafc; color:#475569; font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+}
 .speakerReviewHint {
   margin-top:10px; padding:10px 12px; border-radius:12px; background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:11px; line-height:1.5;
 }
@@ -171,11 +182,17 @@ button { border: 0; background: none; }
   padding:14px 12px; border-radius:14px; border:1px dashed rgba(203,213,225,0.7); color:var(--muted); font-size:12px; background:#fff;
 }
 .speakerLineCard { padding:10px 12px; border-radius:14px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:6px; }
+.speakerLineCard.reviewed { background:#f8fafc; }
+.speakerLineHeader { display:grid; gap:8px; }
 .speakerLineHeader strong { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }
 .speakerLabelSelect {
   width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(203,213,225,0.5);
   background: #fff; font-size: 11px; font-weight: 700; color: var(--text);
 }
+.speakerLineReviewToggle {
+  width:max-content; padding:7px 10px; border-radius:999px; background:#fff; border:1px solid rgba(203,213,225,0.6); color:var(--muted); font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer;
+}
+.speakerLineReviewToggle.reviewed { background:#dcfce7; border-color:#86efac; color:#166534; }
 .speakerLineText { font-size:12px; line-height:1.55; color:var(--text); }
 .speakerLineTextEditor {
   width: 100%; min-height: 76px; resize: vertical; padding: 10px 12px; border-radius: 10px;
@@ -230,6 +247,17 @@ button { border: 0; background: none; }
   display:flex; align-items:center; gap:8px;
 }
 .docSectionTitle::before { content:""; width:4px; height:20px; border-radius:999px; background:var(--primary); display:inline-block; }
+.collapsibleSection { padding:18px; border-radius:18px; border:1px solid var(--line-soft); background:#fafcff; }
+.collapsibleSectionTitle { list-style:none; cursor:pointer; margin-bottom:0; }
+.collapsibleSectionTitle::-webkit-details-marker { display:none; }
+.collapsibleSectionTitle::after {
+  content:"▾"; margin-left:auto; font-size:14px; color:var(--muted);
+}
+.collapsibleSection:not([open]) .collapsibleSectionTitle::after { content:"▸"; }
+.collapsibleSection .docBody { margin-top:14px; }
+.secondarySection { background:#fbfdff; border-color:#e2e8f0; }
+.secondarySection .docSectionTitle { color:#475569; }
+.secondarySection .docSectionTitle::before { background:#cbd5e1; }
 .docBody { white-space:pre-wrap; font-size:15px; line-height:1.7; color:var(--text); }
 .evidenceSection {
   padding:18px; border-radius:18px; background:#f8fbff; border:1px solid #dbeafe;

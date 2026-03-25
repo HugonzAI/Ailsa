@@ -19,6 +19,7 @@ import {
   deleteStoredRecording,
   getStoredRecording,
   listStoredRecordings,
+  recoverInterruptedRecordings,
   saveStoredRecording,
   type StoredRecording,
 } from "@/components/note-studio/recording-store";
@@ -137,7 +138,17 @@ export function NoteStudio() {
   const activeRecordingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    void refreshRecordings();
+    void (async () => {
+      const recoveredCount = await recoverInterruptedRecordings();
+      await refreshRecordings();
+      if (recoveredCount > 0) {
+        setStatus(
+          recoveredCount === 1
+            ? "Recovered 1 interrupted recording — ready to transcribe"
+            : `Recovered ${recoveredCount} interrupted recordings — ready to transcribe`,
+        );
+      }
+    })();
 
     return () => {
       mediaRecorderRef.current?.stop?.();
@@ -313,8 +324,9 @@ export function NoteStudio() {
       }
 
       const combinedTranscript = transcriptParts.join("\n\n").trim();
+      const normalizedSpeakerLines = aggregatedSpeakerLines.map((line) => ({ ...line, reviewed: line.reviewed ?? false }));
       setTranscript(combinedTranscript);
-      setSpeakerLines(aggregatedSpeakerLines);
+      setSpeakerLines(normalizedSpeakerLines);
       setTranscriptConfirmed(false);
       setTranscriptFromAudio(true);
       setStatus(`Transcript ready · ${mode} mode${segments.length > 1 ? ` · ${segments.length} segments` : ""}`);
@@ -322,8 +334,9 @@ export function NoteStudio() {
       await saveStoredRecording({
         ...stored,
         status: "transcribed",
+        interrupted: false,
         transcript: combinedTranscript,
-        speakerLines: aggregatedSpeakerLines,
+        speakerLines: normalizedSpeakerLines,
         updatedAt: new Date().toISOString(),
         error: undefined,
       });
@@ -334,6 +347,7 @@ export function NoteStudio() {
       await saveStoredRecording({
         ...stored,
         status: "failed",
+        interrupted: false,
         updatedAt: new Date().toISOString(),
         error: message,
       });
@@ -356,6 +370,7 @@ export function NoteStudio() {
       filename: existing?.filename || makeStoredFilename(fallbackMimeType),
       mimeType: existing?.mimeType || fallbackMimeType,
       status: statusValue,
+      interrupted: statusValue === "recording" ? existing?.interrupted : false,
       chunks,
       transcript: existing?.transcript,
       error: existing?.error,
@@ -400,6 +415,7 @@ export function NoteStudio() {
         filename,
         mimeType: recordingMimeTypeRef.current,
         status: "recording",
+        interrupted: false,
         chunks: [],
       });
       await refreshRecordings();
@@ -493,7 +509,7 @@ export function NoteStudio() {
 
   function handleSpeakerLineChange(index: number, speaker: TranscriptSpeakerLine["speaker"]) {
     setSpeakerLines((current) => {
-      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, speaker } : line));
+      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, speaker, reviewed: false } : line));
       persistSpeakerLineEdits(next);
       setTranscript(next.map((item) => `${item.speaker}: ${item.text}`).join("\n"));
       return next;
@@ -505,7 +521,7 @@ export function NoteStudio() {
 
   function handleSpeakerLineTextChange(index: number, text: string) {
     setSpeakerLines((current) => {
-      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, text } : line));
+      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, text, reviewed: false } : line));
       persistSpeakerLineEdits(next);
       setTranscript(next.map((item) => `${item.speaker}: ${item.text}`).join("\n"));
       return next;
@@ -513,6 +529,39 @@ export function NoteStudio() {
     setTranscriptFromAudio(true);
     setTranscriptConfirmed(false);
     setStatus("Transcript line edited — review before generating");
+  }
+
+  function handleSpeakerLineReviewToggle(index: number) {
+    setSpeakerLines((current) => {
+      const next = current.map((line, lineIndex) =>
+        lineIndex === index ? { ...line, reviewed: !line.reviewed } : line,
+      );
+      persistSpeakerLineEdits(next);
+      return next;
+    });
+    setStatus("Transcript line review status updated");
+  }
+
+  function handleTightenOutput() {
+    if (!output || output === outputPlaceholder) {
+      setStatus("Nothing to tighten yet");
+      return;
+    }
+
+    const tightened = output
+      .replace(/\bOverall\b[:,]?\s*/g, "")
+      .replace(/\bThis (looks|appears) like\b/gi, "")
+      .replace(/\bresponding to diuresis with\b/gi, "improving with diuresis and")
+      .replace(/\bin the setting of\b/gi, "with")
+      .replace(/\bwith improvement in\b/gi, "improved")
+      .replace(/\n{3,}/g, "\n\n")
+      .split("\n")
+      .map((line) => line.replace(/\s{2,}/g, " ").replace(/[.;:,\s]+$/g, "").trim())
+      .filter((line, index, all) => line && all.findIndex((candidate) => candidate.toLowerCase() === line.toLowerCase()) === index)
+      .join("\n");
+
+    setOutput(tightened);
+    setStatus("Draft tightened for ward-note style");
   }
 
   function handleAccept(editable = false) {
@@ -586,6 +635,7 @@ export function NoteStudio() {
                 filename: file.name,
                 mimeType: file.type || "audio/webm",
                 status: "saved",
+                interrupted: false,
                 chunks: [file],
               };
               void saveStoredRecording(uploaded).then(refreshRecordings).then(() => transcribeStoredRecording(uploaded.id));
@@ -618,7 +668,7 @@ export function NoteStudio() {
             if (!found?.transcript) return;
             setCurrentRecordingId(id);
             setTranscript(found.transcript);
-            setSpeakerLines(found.speakerLines || []);
+            setSpeakerLines((found.speakerLines || []).map((line) => ({ ...line, reviewed: line.reviewed ?? false })));
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(true);
             setStatus(`Loaded saved transcript · ${found.filename}`);
@@ -632,6 +682,7 @@ export function NoteStudio() {
           }}
           onSpeakerLineChange={handleSpeakerLineChange}
           onSpeakerLineTextChange={handleSpeakerLineTextChange}
+          onSpeakerLineReviewToggle={handleSpeakerLineReviewToggle}
         />
 
         <DraftWorkspace
@@ -653,6 +704,7 @@ export function NoteStudio() {
           onOutputChange={setOutput}
           onCopy={copyOutput}
           onGenerate={generate}
+          onTighten={handleTightenOutput}
         />
 
         <SidecarRail structured={structured} reviewStatus={reviewStatus} onFinalize={copyOutput} onResetDemo={resetDemoTranscript} />

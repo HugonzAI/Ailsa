@@ -124,7 +124,7 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "Return only valid JSON.",
     "Do not wrap the JSON in markdown fences.",
     "Do not include explanatory text before or after the JSON.",
-    "Write like a registrar or house officer drafting a concise ward note or handover note.",
+    "Write like a registrar or house officer drafting a concise NZ cardiology ward note.",
     "Only include facts explicitly supported by the transcript.",
     "If something is not stated, use an empty string or empty array rather than guessing.",
     "Do not infer sex, age, ward location, admission reason, or background diagnosis unless the transcript explicitly states them.",
@@ -157,8 +157,10 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     '  "evidenceLimitations": [""]',
     '}',
     "Requirements:",
-    "- Keep strings compact and clinically styled",
+    "- Keep strings compact, terse, and clinically styled",
     "- Prefer ward-round shorthand over polished explanatory prose",
+    "- Main note sections should read like key points, not mini-paragraph explanations",
+    "- Avoid model-style filler such as 'responding to', 'in the setting of', 'with improvement in', unless truly necessary",
     "- Observations should read like compact monitoring data, not full sentences, when possible",
     "- Assessment should usually be one short clinically conservative summary line",
     "- activeProblems should be a short list of current cardiology problems",
@@ -174,6 +176,8 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "- evidenceLimitations should capture what is missing or why evidence support is limited if relevant",
     "- Do not invent demographics, comorbidities, admission details, results, or literature citations that are not stated",
     "- patientContext should be especially strict: if not explicit in the transcript, leave it blank or partial rather than filling gaps",
+    "- Good style examples: 'ADHF improving with diuresis', 'Brief AF overnight, now SR', 'Mild residual congestion', 'Continue IV frusemide', 'Recheck U&E/Cr'",
+    "- Bad style examples: long explanatory sentences, duplicated reasoning, or guideline-style teaching prose inside the main note",
     "",
     "Transcript:",
     transcript,
@@ -411,53 +415,29 @@ export function renderStructuredOutput(output: StructuredOutput) {
   }
 
   return [
-    "Patient Context",
-    formatPatientContext(output.patientContext),
-    "",
-    "Overnight / Interval Events",
+    "Overnight",
     output.overnightEvents || "",
     "",
     "Symptoms",
     output.symptoms || "",
     "",
-    "Observations",
+    "Obs",
     output.observations || "",
     "",
-    "Examination",
+    "Exam",
     output.examination || "",
     "",
-    "Key Investigations",
+    "Ix",
     output.keyInvestigations || "",
     "",
-    "Assessment",
+    "Impression",
     output.assessment || "",
     "",
-    "Active Problems",
+    "Problems",
     ...(output.activeProblems.length ? output.activeProblems.map((item) => `- ${item}`) : [""]),
     "",
-    "Plan Today",
+    "Plan",
     ...(output.planToday.length ? output.planToday.map((item) => `- ${item}`) : [""]),
-    "",
-    "Tasks Allocated",
-    ...(output.tasksAllocated.length ? output.tasksAllocated.map((item) => `- ${formatTask(item)}`) : [""]),
-    "",
-    "Action Summary",
-    ...(output.actionSummary.length ? output.actionSummary.map((item) => `- ${item}`) : [""]),
-    "",
-    "Next Review",
-    output.nextReview || "",
-    "",
-    "Escalations / Safety Concerns",
-    output.escalationsSafetyConcerns || "",
-    "",
-    "Discharge Considerations",
-    output.dischargeConsiderations || "",
-    "",
-    "Evidence Support",
-    ...(output.evidenceSupport.length ? output.evidenceSupport.map((item) => `- ${formatEvidenceItem(item)}`) : [""]),
-    "",
-    "Evidence Limitations",
-    ...(output.evidenceLimitations.length ? output.evidenceLimitations.map((item) => `- ${item}`) : [""]),
   ]
     .join("\n")
     .trim();
@@ -611,6 +591,113 @@ function appendEvidenceLimitations(existing: string[], additions: string[]) {
   return Array.from(new Set([...existing.filter(Boolean), ...additions.filter(Boolean)]));
 }
 
+function stripTrailingPunctuation(value: string) {
+  return value.trim().replace(/[.;:,\s]+$/g, "");
+}
+
+function compressWardPhrase(value: string) {
+  return stripTrailingPunctuation(
+    value
+      .replace(/^overall[,\s]*/i, "")
+      .replace(/^this (looks|appears) like\s+/i, "")
+      .replace(/^there (was|were)\s+/i, "")
+      .replace(/^patient (reports|reported)\s+/i, "")
+      .replace(/^review of systems:\s*/i, "")
+      .replace(/^vital signs:\s*/i, "")
+      .replace(/^physical examination:\s*/i, "")
+      .replace(/^diagnostic studies:\s*/i, "")
+      .replace(/\bwith clinical and\b/gi, "and")
+      .replace(/\bresponding to diuresis with\b/gi, "improving with diuresis and")
+      .replace(/\bin the setting of\b/gi, "with")
+      .replace(/\bwith improvement in\b/gi, "improved")
+      .replace(/\bthere is\b/gi, "")
+      .replace(/\bthere are\b/gi, "")
+      .replace(/\bhas been\b/gi, "")
+      .replace(/\bhave been\b/gi, "")
+      .replace(/\bis now back in\b/gi, "now in")
+      .replace(/\s{2,}/g, " "),
+  );
+}
+
+function compressAssessment(value: string) {
+  const compressed = compressWardPhrase(value)
+    .replace(/^improving decompensated heart failure with reduced ejection fraction(.*)$/i, "ADHF / HFrEF improving$1")
+    .replace(/^decompensated heart failure with reduced ejection fraction(.*)$/i, "ADHF / HFrEF$1")
+    .replace(/^improving heart failure with reduced ejection fraction(.*)$/i, "HFrEF improving$1")
+    .replace(/^likely /i, "Likely ")
+    .replace(/^possible /i, "Possible ");
+
+  return stripTrailingPunctuation(compressed);
+}
+
+function compressPlanItem(value: string) {
+  return stripTrailingPunctuation(
+    compressWardPhrase(value)
+      .replace(/^medications:\s*/i, "")
+      .replace(/^follow-?up:\s*/i, "")
+      .replace(/^plan:?\s*/i, "")
+      .replace(/^continue with\s+/i, "Continue ")
+      .replace(/^monitoring\s+/i, "Monitor ")
+      .replace(/^consideration of\s+/i, "Consider "),
+  );
+}
+
+function splitIntoWardBullets(value: string) {
+  return value
+    .split(/\n|;|,(?=\s(?:no|less|more|brief|now|bp|hr|oxygen|o2|afebrile|jvp|trace|bibasal|crackles|creatinine|potassium|troponin|echo|ecg|telemetry|continue|monitor|recheck|consider)\b)/i)
+    .map((item) => compressWardPhrase(item))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join("\n");
+}
+
+function compressProblems(items: string[]) {
+  return items.map((item) => compressWardPhrase(item)).filter(Boolean).slice(0, 5);
+}
+
+function normalizeFragment(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b(the|a|an|overall|mild|trace|brief|now|today)\b/g, " ")
+    .replace(/[^a-z0-9%]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dedupeWardText(value: string, seen: string[]) {
+  const kept: string[] = [];
+
+  for (const rawLine of value.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const normalized = normalizeFragment(line);
+    if (!normalized) continue;
+
+    const duplicate = seen.some((prior) => {
+      if (!prior) return false;
+      return prior === normalized || prior.includes(normalized) || normalized.includes(prior);
+    });
+
+    if (!duplicate) {
+      kept.push(line);
+      seen.push(normalized);
+    }
+  }
+
+  return kept.join("\n");
+}
+
+function dedupeProblemList(items: string[], seen: string[]) {
+  return items.filter((item) => {
+    const normalized = normalizeFragment(item);
+    if (!normalized) return false;
+    const duplicate = seen.some((prior) => prior === normalized || prior.includes(normalized) || normalized.includes(prior));
+    if (duplicate) return false;
+    seen.push(normalized);
+    return true;
+  });
+}
+
 export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
   const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
@@ -627,6 +714,15 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
       : "",
   ]);
 
+  const seenFragments: string[] = [];
+  const overnightEvents = dedupeWardText(splitIntoWardBullets(note.overnightEvents), seenFragments);
+  const symptoms = dedupeWardText(splitIntoWardBullets(note.symptoms), seenFragments);
+  const observations = dedupeWardText(splitIntoWardBullets(note.observations), seenFragments);
+  const examination = dedupeWardText(splitIntoWardBullets(note.examination), seenFragments);
+  const keyInvestigations = dedupeWardText(splitIntoWardBullets(note.keyInvestigations), seenFragments);
+  const assessment = dedupeWardText(compressAssessment(note.assessment), seenFragments);
+  const activeProblems = dedupeProblemList(compressProblems(note.activeProblems), [...seenFragments]);
+
   return {
     ...note,
     patientContext: {
@@ -634,15 +730,27 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
       explicitAdmissionReason: hasExplicitAdmission ? note.patientContext.explicitAdmissionReason : "",
       explicitCardiacBackground: hasExplicitBackground ? note.patientContext.explicitCardiacBackground : [],
     },
+    overnightEvents,
+    symptoms,
+    observations,
+    examination,
+    keyInvestigations,
+    assessment,
+    activeProblems,
+    planToday: note.planToday.map((item) => compressPlanItem(item)).filter(Boolean).slice(0, 5),
     nextReview: hasNextReviewSignal ? extractNextReview(transcript, note.nextReview) : "",
-    escalationsSafetyConcerns: hasEscalationSignal ? note.escalationsSafetyConcerns : "",
+    escalationsSafetyConcerns: hasEscalationSignal ? compressWardPhrase(note.escalationsSafetyConcerns) : "",
     tasksAllocated: note.tasksAllocated
       .map((task) => ({
         ...task,
-        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? task.urgency : "",
+        task: compressPlanItem(task.task),
+        owner: compressWardPhrase(task.owner),
+        timing: compressWardPhrase(task.timing),
+        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? compressWardPhrase(task.urgency) : "",
       }))
       .filter((task) => task.task),
-    actionSummary: note.actionSummary.filter(Boolean),
+    actionSummary: note.actionSummary.map((item) => compressPlanItem(item)).filter(Boolean).slice(0, 4),
+    dischargeConsiderations: compressWardPhrase(note.dischargeConsiderations),
     evidenceSupport,
     evidenceLimitations,
   };
@@ -685,7 +793,7 @@ export function sanitizeDischargeSummary(summary: StructuredDischargeSummary, tr
   const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
   const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|presented with)/i.test(lower);
   const hasExplicitBackground = /(history of|past medical history|pmhx|known to have|background of|prior pci|prior cabg|known hfre?f|known hf|known af)/i.test(lower);
-  const hasEvidenceContext = /(discharge|follow up|medication|echo|ecg|troponin|angiography|stent|pci|cabg|heart failure|arrhythmia|af|renal function)/i.test(lower);
+  const hasEvidenceContext = /(heart failure|hfre?f|arrhythmia|atrial fibrillation|\baf\b|pci|cabg|angiography|echo|renal function|electrolytes|medication change|diuresis)/i.test(lower);
   const evidenceSupport = hasEvidenceContext ? sanitizeEvidenceSupportItems(summary.evidenceSupport, transcript, { mode: "inpatient" }) : [];
   const evidenceLimitations = appendEvidenceLimitations(summary.evidenceLimitations, [
     !hasEvidenceContext ? "Evidence support withheld because discharge-specific transcript detail was limited." : "",

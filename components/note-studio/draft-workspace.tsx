@@ -22,6 +22,7 @@ type DraftWorkspaceProps = {
   onOutputChange: (next: string) => void;
   onCopy: () => void;
   onGenerate: () => void;
+  onTighten: () => void;
 };
 
 export function DraftWorkspace({
@@ -43,6 +44,7 @@ export function DraftWorkspace({
   onOutputChange,
   onCopy,
   onGenerate,
+  onTighten,
 }: DraftWorkspaceProps) {
   const lastAuditEntry = auditLog[auditLog.length - 1] ?? null;
   const acceptedEntry = [...auditLog].reverse().find((entry) => entry.action === "accepted") ?? null;
@@ -140,27 +142,44 @@ export function DraftWorkspace({
               </>
             ) : (
               <>
-                <Section title="Interval History">{structured.overnightEvents || "—"}</Section>
-                <Section title="Objective Findings">{structured.observations || "—"}</Section>
-                <Section title="Physical Examination">{structured.examination || "—"}</Section>
-                <Section title="Assessment & Management Plan">{[structured.assessment, structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : ""].filter(Boolean).join("\n\n") || "—"}</Section>
-                <Section title="Patient Context">{patientContextText || "—"}</Section>
+                <Section title="Overnight">{structured.overnightEvents || "—"}</Section>
                 <Section title="Symptoms">{structured.symptoms || "—"}</Section>
-                <Section title="Key Investigations">{structured.keyInvestigations || "—"}</Section>
-                <Section title="Active Problems">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Discharge Considerations">{structured.dischargeConsiderations || "—"}</Section>
+                <Section title="Obs">{structured.observations || "—"}</Section>
+                <Section title="Exam">{structured.examination || "—"}</Section>
+                <Section title="Ix">{structured.keyInvestigations || "—"}</Section>
+                <Section title="Impression">{structured.assessment || "—"}</Section>
+                <Section title="Problems">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                <Section title="Plan">{structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+
+                {(patientContextText || structured.dischargeConsiderations || structured.tasksAllocated.length || structured.actionSummary.length || structured.nextReview || structured.escalationsSafetyConcerns) ? (
+                  <Section title="Workflow / Context" variant="secondary" collapsible={true} defaultOpen={false}>
+                    {[
+                      patientContextText ? `Patient Context\n${patientContextText}` : "",
+                      structured.dischargeConsiderations ? `Discharge Considerations\n${structured.dischargeConsiderations}` : "",
+                      structured.tasksAllocated.length
+                        ? `Tasks Allocated\n${structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n")}`
+                        : "",
+                      structured.actionSummary.length
+                        ? `Action Summary\n${structured.actionSummary.map((item) => `• ${item}`).join("\n")}`
+                        : "",
+                      structured.nextReview ? `Next Review\n${structured.nextReview}` : "",
+                      structured.escalationsSafetyConcerns ? `Escalations / Safety\n${structured.escalationsSafetyConcerns}` : "",
+                    ].filter(Boolean).join("\n\n")}
+                  </Section>
+                ) : null}
               </>
             )}
 
-            {showEvidence && structured.evidenceSupport.length > 0 ? (
-              <Section title="Evidence Support" variant="evidence">
-                {structured.evidenceSupport.map((item) => `• ${item.claim} — ${item.rationale}\n${item.evidenceType} | confidence: ${item.confidence} | ${item.citationLabel}`).join("\n\n")}
-              </Section>
-            ) : null}
-
-            {showEvidence && structured.evidenceLimitations.length > 0 ? (
-              <Section title="Evidence Limitations" variant="evidence">
-                {structured.evidenceLimitations.map((item) => `• ${item}`).join("\n")}
+            {(showEvidence && structured.evidenceSupport.length > 0) || (showEvidence && structured.evidenceLimitations.length > 0) ? (
+              <Section title="Evidence / Limitations" variant="evidence" collapsible={true} defaultOpen={false}>
+                {[
+                  structured.evidenceSupport.length
+                    ? `Evidence Support\n${structured.evidenceSupport.map((item) => `• ${item.claim} — ${item.rationale}\n${item.evidenceType} | confidence: ${item.confidence} | ${item.citationLabel}`).join("\n\n")}`
+                    : "",
+                  structured.evidenceLimitations.length
+                    ? `Evidence Limitations\n${structured.evidenceLimitations.map((item) => `• ${item}`).join("\n")}`
+                    : "",
+                ].filter(Boolean).join("\n\n")}
               </Section>
             ) : null}
           </div>
@@ -179,6 +198,7 @@ export function DraftWorkspace({
           </div>
           <div className="footerActions">
             <button className="secondaryAction" type="button" onClick={onCopy}>Copy</button>
+            <button className="secondaryAction" type="button" onClick={onTighten} disabled={!hasStructuredContent}>Tighten note</button>
             <button className="secondaryAction" type="button" onClick={onGenerate} disabled={loading || transcriptNeedsConfirmation}>Regenerate</button>
           </div>
         </footer>
