@@ -131,10 +131,10 @@ function buildMockDischargeSummary(): StructuredDischargeSummary {
   };
 }
 
-function sanitizeOutput(output: StructuredOutput, transcript: string): StructuredOutput {
+function sanitizeOutput(output: StructuredOutput, transcript: string, encounterType?: string): StructuredOutput {
   if (output.documentType === "cardiology_consultant_letter") return sanitizeConsultantLetter(output, transcript);
   if (output.documentType === "cardiac_discharge_summary") return sanitizeDischargeSummary(output, transcript);
-  return sanitizeStructuredCardiacNote(output, transcript);
+  return sanitizeStructuredCardiacNote(output, transcript, encounterType);
 }
 
 export async function POST(request: Request) {
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
         : documentType === "cardiac_discharge_summary"
           ? buildMockDischargeSummary()
           : buildMockStructuredNote();
-    const structured = sanitizeOutput(raw, transcript);
+    const structured = sanitizeOutput(raw, transcript, body.encounterType);
     const response: NoteGenerationResponse = {
       soapNote: renderStructuredOutput(structured),
       structured,

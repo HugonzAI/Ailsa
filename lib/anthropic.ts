@@ -21,9 +21,9 @@ export function getAnthropicModel() {
   return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 }
 
-export function getDocumentType(encounterType?: EncounterType): DocumentType {
+export function getDocumentType(encounterType?: EncounterType | string): DocumentType {
   if (encounterType === "Cardiology consultant letter") return "cardiology_consultant_letter";
-  if (encounterType === "Cardiac discharge") return "cardiac_discharge_summary";
+  if (encounterType === "Discharge" || encounterType === "Cardiac discharge") return "cardiac_discharge_summary";
   return "cardiac_inpatient_note";
 }
 
@@ -117,14 +117,39 @@ export function emptyDischargeSummary(): StructuredDischargeSummary {
   };
 }
 
-export function buildStructuredCardiacPrompt(transcript: string, encounterType = "Cardiac ward round") {
+function buildEncounterSpecificWardHints(encounterType: string) {
+  if (encounterType === "HF review") {
+    return [
+      "- For HF-focused notes, prefer shorthand such as 'ADHF', 'HFrEF', 'still overloaded', 'euvolaemic', 'Wt down', 'FB negative', 'JVP up', 'bibasal crackles', 'trace oedema' when explicitly supported",
+      "- HF plans should sound like ward actions: 'Continue IV frusemide', 'Daily wt / FB', 'Recheck U&E/Cr', 'Titrate GDMT as tolerated'",
+    ];
+  }
+
+  if (encounterType === "Chest pain") {
+    return [
+      "- For chest-pain / ACS notes, prefer shorthand such as 'CP', 'possible ACS', 'trops flat', 'ECG nil dynamic change', 'pain settled' when explicitly supported",
+      "- Chest-pain plans should sound like ward actions: 'Repeat trops/ECG', 'Telemetry', 'Discuss for angiography', 'Continue DAPT/anticoagulation only if explicitly supported'",
+    ];
+  }
+
+  if (encounterType === "AF review") {
+    return [
+      "- For AF-focused notes, prefer shorthand such as 'AF', 'AF with RVR', 'now SR', 'rate controlled', 'brief AF overnight' when explicitly supported",
+      "- AF plans should sound like ward actions: 'Continue bisoprolol/metoprolol', 'Telemetry', 'Keep K > 4 / Mg > 1', 'Review anticoagulation' only if explicitly supported",
+    ];
+  }
+
+  return [];
+}
+
+export function buildStructuredCardiacPrompt(transcript: string, encounterType = "Ward round") {
   return [
     "You are a clinical documentation assistant for a New Zealand inpatient cardiology team.",
     `Encounter type: ${encounterType}.`,
     "Return only valid JSON.",
     "Do not wrap the JSON in markdown fences.",
     "Do not include explanatory text before or after the JSON.",
-    "Write like a registrar or house officer drafting a concise NZ cardiology ward note.",
+    "Write like a registrar or house officer drafting a concise NZ cardiology ward-round note.",
     "Only include facts explicitly supported by the transcript.",
     "If something is not stated, use an empty string or empty array rather than guessing.",
     "Do not infer sex, age, ward location, admission reason, or background diagnosis unless the transcript explicitly states them.",
@@ -159,7 +184,7 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "Requirements:",
     "- Keep strings compact, terse, and clinically styled",
     "- Prefer ward-round shorthand over polished explanatory prose",
-    "- Main note sections should read like key points, not mini-paragraph explanations",
+    "- Main note sections should read like ward-note lines, not mini-paragraph explanations",
     "- Avoid model-style filler such as 'responding to', 'in the setting of', 'with improvement in', unless truly necessary",
     "- Observations should read like compact monitoring data, not full sentences, when possible",
     "- Assessment should usually be one short clinically conservative summary line",
@@ -176,7 +201,8 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "- evidenceLimitations should capture what is missing or why evidence support is limited if relevant",
     "- Do not invent demographics, comorbidities, admission details, results, or literature citations that are not stated",
     "- patientContext should be especially strict: if not explicit in the transcript, leave it blank or partial rather than filling gaps",
-    "- Good style examples: 'ADHF improving with diuresis', 'Brief AF overnight, now SR', 'Mild residual congestion', 'Continue IV frusemide', 'Recheck U&E/Cr'",
+    "- Good style examples: 'ADHF improving', 'Brief AF overnight, now SR', 'nil CP', 'Less SOB', 'Wt down 1.2 kg', 'Sats 96% RA', 'JVP mildly up', 'Bibasal crackles improved', 'Continue IV frusemide', 'Recheck U&E/Cr'",
+    ...buildEncounterSpecificWardHints(encounterType),
     "- Bad style examples: long explanatory sentences, duplicated reasoning, or guideline-style teaching prose inside the main note",
     "",
     "Transcript:",
@@ -333,7 +359,7 @@ export function renderStructuredOutput(output: StructuredOutput) {
       output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${item}`).join("\n")}` : "",
       output.summary ? `Summary\n${output.summary}` : "",
       output.assessmentPlan.length ? `Assessment / Plan\n${output.assessmentPlan.map(formatAssessmentPlanItem).join("\n\n")}` : "",
-      output.followUp ? `Follow Up\n${output.followUp}` : "",
+      output.followUp ? `Follow-up\n${output.followUp}` : "",
       [
         output.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${output.cardiacRiskFactors.map((item) => `- ${item}`).join("\n")}` : "",
         output.cardiacHistory.length ? `Cardiac History\n${output.cardiacHistory.map((item) => `- ${item}`).join("\n")}` : "",
@@ -379,7 +405,7 @@ export function renderStructuredOutput(output: StructuredOutput) {
     "Overnight",
     output.overnightEvents || "",
     "",
-    "Symptoms",
+    "Sx",
     output.symptoms || "",
     "",
     "Obs",
@@ -391,7 +417,7 @@ export function renderStructuredOutput(output: StructuredOutput) {
     "Ix",
     output.keyInvestigations || "",
     "",
-    "Impression",
+    "Assessment",
     output.assessment || "",
     "",
     "Problems",
@@ -576,6 +602,32 @@ function compressWardPhrase(value: string) {
       .replace(/\bhas been\b/gi, "")
       .replace(/\bhave been\b/gi, "")
       .replace(/\bis now back in\b/gi, "now in")
+      .replace(/\bon room air\b/gi, "RA")
+      .replace(/\boxygen saturation\b/gi, "Sats")
+      .replace(/\bsaturation\b/gi, "sats")
+      .replace(/\bblood pressure\b/gi, "BP")
+      .replace(/\bheart rate\b/gi, "HR")
+      .replace(/\burine output\b/gi, "UO")
+      .replace(/\bfluid balance\b/gi, "FB")
+      .replace(/\bweight is down\b/gi, "Wt down")
+      .replace(/\bweight down\b/gi, "Wt down")
+      .replace(/\bshortness of breath\b/gi, "SOB")
+      .replace(/\bbreathlessness\b/gi, "SOB")
+      .replace(/\bdyspn(?:oe|ea)a\b/gi, "SOB")
+      .replace(/\bchest pain free\b/gi, "CP free")
+      .replace(/\bno chest pain\b/gi, "nil CP")
+      .replace(/\bno shortness of breath\b/gi, "nil SOB")
+      .replace(/\borthopn(?:oe|ea)a\b/gi, "orthopnoea")
+      .replace(/\bparoxysmal nocturnal dyspn(?:oe|ea)a\b/gi, "PND")
+      .replace(/\bjugular venous pressure\b/gi, "JVP")
+      .replace(/\bcreatinine\b/gi, "Cr")
+      .replace(/\bpotassium\b/gi, "K")
+      .replace(/\burea and electrolytes\b/gi, "U&E")
+      .replace(/\bchest x-?ray\b/gi, "CXR")
+      .replace(/\btransthoracic echo(?:cardiogram)?\b/gi, "TTE")
+      .replace(/\btelemetry showed\b/gi, "Telemetry")
+      .replace(/\bback in sinus rhythm\b/gi, "now SR")
+      .replace(/\bin sinus rhythm\b/gi, "SR")
       .replace(/\s{2,}/g, " "),
   );
 }
@@ -585,6 +637,12 @@ function compressAssessment(value: string) {
     .replace(/^improving decompensated heart failure with reduced ejection fraction(.*)$/i, "ADHF / HFrEF improving$1")
     .replace(/^decompensated heart failure with reduced ejection fraction(.*)$/i, "ADHF / HFrEF$1")
     .replace(/^improving heart failure with reduced ejection fraction(.*)$/i, "HFrEF improving$1")
+    .replace(/^acute decompensated heart failure(.*)$/i, "ADHF$1")
+    .replace(/^atrial fibrillation(.*)$/i, "AF$1")
+    .replace(/^heart failure with reduced ejection fraction(.*)$/i, "HFrEF$1")
+    .replace(/^non st elevation myocardial infarction(.*)$/i, "NSTEMI$1")
+    .replace(/^possible acute coronary syndrome(.*)$/i, "Possible ACS$1")
+    .replace(/^likely acute coronary syndrome(.*)$/i, "Likely ACS$1")
     .replace(/^likely /i, "Likely ")
     .replace(/^possible /i, "Possible ");
 
@@ -598,14 +656,165 @@ function compressPlanItem(value: string) {
       .replace(/^follow-?up:\s*/i, "")
       .replace(/^plan:?\s*/i, "")
       .replace(/^continue with\s+/i, "Continue ")
+      .replace(/^continue oral\s+/i, "Continue PO ")
+      .replace(/^continue intravenous\s+/i, "Continue IV ")
       .replace(/^monitoring\s+/i, "Monitor ")
+      .replace(/^repeat\s+/i, "Repeat ")
+      .replace(/^recheck\s+/i, "Recheck ")
       .replace(/^consideration of\s+/i, "Consider "),
   );
 }
 
+function applyWardSyndromePhrases(value: string) {
+  return stripTrailingPunctuation(
+    value
+      // HF
+      .replace(/\bfluid overloaded\b/gi, "overloaded")
+      .replace(/\bstill fluid overloaded\b/gi, "still overloaded")
+      .replace(/\bvolume overloaded\b/gi, "overloaded")
+      .replace(/\bnegative fluid balance\b/gi, "FB negative")
+      .replace(/\bdaily weights?\b/gi, "daily wt")
+      .replace(/\bguideline directed medical therapy\b/gi, "GDMT")
+      .replace(/\bleft ventricular ejection fraction\b/gi, "LVEF")
+      .replace(/\bperipheral oedema\b/gi, "oedema")
+      .replace(/\bintravenous diuresis\b/gi, "IV diuresis")
+      .replace(/\biv diuresis\b/gi, "IV diuresis")
+      // ACS / chest pain
+      .replace(/\bacute coronary syndrome\b/gi, "ACS")
+      .replace(/\bdual antiplatelet therapy\b/gi, "DAPT")
+      .replace(/\bno dynamic ecg changes?\b/gi, "ECG nil dynamic change")
+      .replace(/\bwithout dynamic ecg changes?\b/gi, "ECG nil dynamic change")
+      .replace(/\btroponin(?:s)? remained flat\b/gi, "trops flat")
+      .replace(/\btroponin(?:s)? (?:is|are) flat\b/gi, "trops flat")
+      .replace(/\bserial troponins? negative\b/gi, "serial trops negative")
+      .replace(/\bchest pain settled\b/gi, "CP settled")
+      .replace(/\bchest pain improved\b/gi, "CP improved")
+      // AF
+      .replace(/\batrial fibrillation with rapid ventricular response\b/gi, "AF with RVR")
+      .replace(/\brapid ventricular response\b/gi, "RVR")
+      .replace(/\brate controlled\b/gi, "rate controlled")
+      .replace(/\bpotassium greater than 4\b/gi, "K > 4")
+      .replace(/\bmagnesium greater than 1\b/gi, "Mg > 1")
+      .replace(/\bmagnesium above 1\b/gi, "Mg > 1")
+      .replace(/\s{2,}/g, " "),
+  );
+}
+
+function applySyndromeAssessmentPack(value: string, transcriptLower: string) {
+  let next = applyWardSyndromePhrases(value);
+
+  const hasHF = /(heart failure|hfre?f|adhf|diuresis|fluid overload|overloaded|jvp|oedema|orthopnoea|pnd)/i.test(transcriptLower);
+  const hasACS = /(chest pain|acs|angina|troponin|trops|ecg|stemi|nstemi|angiography)/i.test(transcriptLower);
+  const hasAF = /(atrial fibrillation|\baf\b|arrhythmia|telemetry|sinus rhythm|rate controlled|rvr)/i.test(transcriptLower);
+
+  if (hasHF) {
+    next = next
+      .replace(/\badhf improving with diuresis\b/gi, "ADHF improving")
+      .replace(/\bhf improving with diuresis\b/gi, "HF improving")
+      .replace(/\bhfre?f with residual congestion\b/gi, "HFrEF, still mildly overloaded")
+      .replace(/\badhf with residual congestion\b/gi, "ADHF, still mildly overloaded");
+  }
+
+  if (hasACS) {
+    next = next
+      .replace(/\bpossible acs with trops flat\b/gi, "Possible ACS, trops flat")
+      .replace(/\bpossible acs and ecg nil dynamic change\b/gi, "Possible ACS, ECG nil dynamic change")
+      .replace(/\bcp improved and trops flat\b/gi, "CP improved, trops flat");
+  }
+
+  if (hasAF) {
+    next = next
+      .replace(/\baf now sr\b/gi, "AF, now SR")
+      .replace(/\bbrief af overnight now sr\b/gi, "Brief AF overnight, now SR")
+      .replace(/\baf with rvr now rate controlled\b/gi, "AF with RVR, now rate controlled");
+  }
+
+  return stripTrailingPunctuation(next);
+}
+
+function applySyndromePlanPack(value: string, transcriptLower: string) {
+  let next = applyWardSyndromePhrases(value);
+
+  const hasHF = /(heart failure|hfre?f|adhf|diuresis|fluid overload|overloaded|jvp|oedema|orthopnoea|pnd)/i.test(transcriptLower);
+  const hasACS = /(chest pain|acs|angina|troponin|trops|ecg|stemi|nstemi|angiography)/i.test(transcriptLower);
+  const hasAF = /(atrial fibrillation|\baf\b|arrhythmia|telemetry|sinus rhythm|rate controlled|rvr)/i.test(transcriptLower);
+
+  if (hasHF) {
+    next = next
+      .replace(/\bmonitor renal function and electrolytes\b/gi, "Recheck U&E/Cr")
+      .replace(/\bmonitor fluid balance\b/gi, "Daily FB")
+      .replace(/\bmonitor weights?\b/gi, "Daily wt")
+      .replace(/\bcontinue iv furosemide\b/gi, "Continue IV frusemide")
+      .replace(/\bcontinue furosemide\b/gi, "Continue frusemide")
+      .replace(/\bconsider discharge in 24 to 48 hours\b/gi, "Possible discharge 24-48 h");
+  }
+
+  if (hasACS) {
+    next = next
+      .replace(/\brepeat troponins? and ecg\b/gi, "Repeat trops/ECG")
+      .replace(/\brepeat ecg and troponins?\b/gi, "Repeat trops/ECG")
+      .replace(/\bmonitor on telemetry\b/gi, "Telemetry")
+      .replace(/\bdiscuss for angiography\b/gi, "Discuss for angiography");
+  }
+
+  if (hasAF) {
+    next = next
+      .replace(/\bcontinue beta blocker\b/gi, "Continue beta-blocker")
+      .replace(/\bcontinue metoprolol\b/gi, "Continue metoprolol")
+      .replace(/\bcontinue bisoprolol\b/gi, "Continue bisoprolol")
+      .replace(/\bkeep potassium greater than 4\b/gi, "Keep K > 4")
+      .replace(/\bkeep magnesium greater than 1\b/gi, "Keep Mg > 1")
+      .replace(/\breview anticoagulation\b/gi, "Review anticoagulation");
+  }
+
+  return stripTrailingPunctuation(next);
+}
+
+function applyEncounterAwareWardTone(value: string, encounterType: EncounterType | string | undefined, kind: "assessment" | "plan") {
+  if (!value) return value;
+  let next = value;
+
+  if (encounterType === "HF review") {
+    next = kind === "assessment"
+      ? next
+          .replace(/^HFrEF improving$/i, "ADHF improving")
+          .replace(/^HF improving$/i, "ADHF improving")
+          .replace(/^ADHF, still mildly overloaded$/i, "ADHF improving, still mildly overloaded")
+          .replace(/^HFrEF, still mildly overloaded$/i, "HFrEF, still mildly overloaded")
+          .replace(/^HFrEF$/i, "HFrEF review")
+      : next
+          .replace(/^Continue frusemide$/i, "Continue IV frusemide")
+          .replace(/^Continue diuresis$/i, "Continue IV frusemide")
+          .replace(/^Daily FB$/i, "Daily wt / FB")
+          .replace(/^Possible discharge 24-48 h$/i, "Possible discharge 24–48 h");
+  }
+
+  if (encounterType === "Chest pain") {
+    next = kind === "assessment"
+      ? next
+          .replace(/^Possible ACS$/i, "Chest pain, ?ACS")
+          .replace(/^Likely ACS$/i, "Chest pain, likely ACS")
+      : next
+          .replace(/^Telemetry$/i, "Telemetry / serial ECG")
+          .replace(/^Repeat trops\/ECG$/i, "Serial trops / ECG");
+  }
+
+  if (encounterType === "AF review") {
+    next = kind === "assessment"
+      ? next
+          .replace(/^AF$/i, "AF review")
+          .replace(/^AF, now SR$/i, "PAF, now SR")
+      : next
+          .replace(/^Continue beta-blocker$/i, "Rate control")
+          .replace(/^Telemetry$/i, "Telemetry / rhythm watch");
+  }
+
+  return stripTrailingPunctuation(next);
+}
+
 function splitIntoWardBullets(value: string) {
   return value
-    .split(/\n|;|,(?=\s(?:no|less|more|brief|now|bp|hr|oxygen|o2|afebrile|jvp|trace|bibasal|crackles|creatinine|potassium|troponin|echo|ecg|telemetry|continue|monitor|recheck|consider)\b)/i)
+    .split(/\n|;|,(?=\s(?:no|nil|less|more|brief|now|bp|hr|sats|oxygen|o2|afebrile|jvp|trace|bibasal|crackles|creatinine|potassium|troponin|echo|ecg|telemetry|wt|weight|cp|sob|orthopnoea|pnd|continue|monitor|recheck|repeat|consider)\b)/i)
     .map((item) => compressWardPhrase(item))
     .filter(Boolean)
     .slice(0, 3)
@@ -684,7 +893,7 @@ function compressStringArray(items: string[], formatter: (value: string) => stri
   return items.map((item) => formatter(item)).filter(Boolean).slice(0, limit);
 }
 
-export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
+export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string, encounterType?: EncounterType | string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
   const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
   const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|primary reason for admission|presented with chest pain|presented with syncope|presented with dyspnoea)/i.test(lower);
@@ -701,13 +910,13 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
   ]);
 
   const seenFragments: string[] = [];
-  const overnightEvents = dedupeWardText(splitIntoWardBullets(note.overnightEvents), seenFragments);
-  const symptoms = dedupeWardText(splitIntoWardBullets(note.symptoms), seenFragments);
-  const observations = dedupeWardText(splitIntoWardBullets(note.observations), seenFragments);
-  const examination = dedupeWardText(splitIntoWardBullets(note.examination), seenFragments);
-  const keyInvestigations = dedupeWardText(splitIntoWardBullets(note.keyInvestigations), seenFragments);
-  const assessment = dedupeWardText(compressAssessment(note.assessment), seenFragments);
-  const activeProblems = dedupeProblemList(compressProblems(note.activeProblems), [...seenFragments]);
+  const overnightEvents = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.overnightEvents)), seenFragments);
+  const symptoms = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.symptoms)), seenFragments);
+  const observations = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.observations)), seenFragments);
+  const examination = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.examination)), seenFragments);
+  const keyInvestigations = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.keyInvestigations)), seenFragments);
+  const assessment = dedupeWardText(applyEncounterAwareWardTone(applySyndromeAssessmentPack(compressAssessment(note.assessment), lower), encounterType, "assessment"), seenFragments);
+  const activeProblems = dedupeProblemList(compressProblems(note.activeProblems).map((item) => applyEncounterAwareWardTone(applySyndromeAssessmentPack(item, lower), encounterType, "assessment")), [...seenFragments]);
 
   return {
     ...note,
@@ -723,19 +932,19 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
     keyInvestigations,
     assessment,
     activeProblems,
-    planToday: note.planToday.map((item) => compressPlanItem(item)).filter(Boolean).slice(0, 5),
+    planToday: note.planToday.map((item) => applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan")).filter(Boolean).slice(0, 5),
     nextReview: hasNextReviewSignal ? extractNextReview(transcript, note.nextReview) : "",
     escalationsSafetyConcerns: hasEscalationSignal ? compressWardPhrase(note.escalationsSafetyConcerns) : "",
     tasksAllocated: note.tasksAllocated
       .map((task) => ({
         ...task,
-        task: compressPlanItem(task.task),
+        task: applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(task.task), lower), encounterType, "plan"),
         owner: compressWardPhrase(task.owner),
-        timing: compressWardPhrase(task.timing),
+        timing: applyEncounterAwareWardTone(applySyndromePlanPack(compressWardPhrase(task.timing), lower), encounterType, "plan"),
         urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? compressWardPhrase(task.urgency) : "",
       }))
       .filter((task) => task.task),
-    actionSummary: note.actionSummary.map((item) => compressPlanItem(item)).filter(Boolean).slice(0, 4),
+    actionSummary: note.actionSummary.map((item) => applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan")).filter(Boolean).slice(0, 4),
     dischargeConsiderations: compressWardPhrase(note.dischargeConsiderations),
     evidenceSupport,
     evidenceLimitations,

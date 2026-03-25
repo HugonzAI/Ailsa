@@ -37,14 +37,14 @@ Doctor: Plan on discharge is to continue furosemide and bisoprolol, arrange card
 Doctor: Advise return for worsening breathlessness, chest pain, palpitations, or recurrent fluid overload symptoms.`;
 
 export const encounterOptions: EncounterType[] = [
-  "Cardiac ward round",
-  "Cardiac admission",
-  "Cardiac discharge",
-  "Cardiac handover",
-  "Chest pain / ACS review",
-  "Decompensated heart failure",
-  "AF / arrhythmia review",
-  "Syncope / presyncope review",
+  "Ward round",
+  "Admission",
+  "Discharge",
+  "Handover",
+  "Chest pain",
+  "HF review",
+  "AF review",
+  "Syncope review",
   "Cardiology consultant letter",
 ];
 
@@ -127,6 +127,6 @@ export function formatAuditTimestamp(timestamp: string) {
 
 export function getEmptyStructuredOutput(next: EncounterType): StructuredOutput {
   if (next === "Cardiology consultant letter") return emptyConsultantLetter;
-  if (next === "Cardiac discharge") return emptyDischargeSummary;
+  if (next === "Discharge") return emptyDischargeSummary;
   return emptyStructuredNote;
 }

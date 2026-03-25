@@ -17,7 +17,7 @@ export function SidecarRail({ structured, reviewStatus, onFinalize, onResetDemo 
       {structured.documentType === "cardiology_consultant_letter" ? (
         <>
           <SidecarBlock title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
-          <SidecarBlock title="Follow Up">{structured.followUp || "—"}</SidecarBlock>
+          <SidecarBlock title="Follow-up">{structured.followUp || "—"}</SidecarBlock>
         </>
       ) : structured.documentType === "cardiac_discharge_summary" ? (
         <>

@@ -129,7 +129,7 @@ export function NoteStudio() {
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
+  const [encounterType, setEncounterType] = useState<EncounterType>("Ward round");
   const [transcriptConfirmed, setTranscriptConfirmed] = useState(false);
   const [transcriptFromAudio, setTranscriptFromAudio] = useState(false);
   const [speakerLines, setSpeakerLines] = useState<TranscriptSpeakerLine[]>([]);
@@ -469,7 +469,7 @@ export function NoteStudio() {
     const current = workspaceSessions.find((session) => session.id === currentSessionId);
     if (!current) return;
 
-    const isGeneric = /^Session\s+\d+$/i.test(current.name) || /^(Ward round|Admission|Discharge|Handover|Chest pain|HF review|Arrhythmia|Syncope|Consult letter) · \d{2}/.test(current.name);
+    const isGeneric = /^Session\s+\d+$/i.test(current.name) || /^(Ward round|Admission|Discharge|Handover|Chest pain|HF review|AF review|Syncope review|Consultant letter) · \d{2}/.test(current.name);
     if (!isGeneric) return;
 
     const nextName = buildSmartSessionName(nextEncounterType || encounterType, nextTranscript || transcript);
@@ -829,7 +829,7 @@ export function NoteStudio() {
 
   function resetDemoTranscript() {
     if (encounterType === "Cardiology consultant letter") setTranscript(consultantDemoTranscript);
-    else if (encounterType === "Cardiac discharge") setTranscript(dischargeDemoTranscript);
+    else if (encounterType === "Discharge") setTranscript(dischargeDemoTranscript);
     else setTranscript(demoTranscript);
 
     setSpeakerLines([]);

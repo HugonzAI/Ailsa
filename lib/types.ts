@@ -1,12 +1,12 @@
 export type EncounterType =
-  | "Cardiac ward round"
-  | "Cardiac admission"
-  | "Cardiac discharge"
-  | "Cardiac handover"
-  | "Chest pain / ACS review"
-  | "Decompensated heart failure"
-  | "AF / arrhythmia review"
-  | "Syncope / presyncope review"
+  | "Ward round"
+  | "Admission"
+  | "Discharge"
+  | "Handover"
+  | "Chest pain"
+  | "HF review"
+  | "AF review"
+  | "Syncope review"
   | "Cardiology consultant letter";
 
 export type DocumentType = "cardiac_inpatient_note" | "cardiology_consultant_letter" | "cardiac_discharge_summary";

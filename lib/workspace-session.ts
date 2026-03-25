@@ -41,15 +41,15 @@ function formatSessionTime(value: Date) {
 export function buildSmartSessionName(encounterType: EncounterType, transcript?: string) {
   const now = new Date();
   const labelMap: Record<EncounterType, string> = {
-    "Cardiac ward round": "Ward-round consult",
-    "Cardiac admission": "Admission consult",
-    "Cardiac discharge": "Discharge consult",
-    "Cardiac handover": "Handover consult",
-    "Chest pain / ACS review": "Chest pain consult",
-    "Decompensated heart failure": "HF consult",
-    "AF / arrhythmia review": "Arrhythmia consult",
-    "Syncope / presyncope review": "Syncope consult",
-    "Cardiology consultant letter": "Consult letter",
+    "Ward round": "Ward round",
+    "Admission": "Admission",
+    "Discharge": "Discharge",
+    "Handover": "Handover",
+    "Chest pain": "Chest pain",
+    "HF review": "HF review",
+    "AF review": "AF review",
+    "Syncope review": "Syncope review",
+    "Cardiology consultant letter": "Consultant letter",
   };
 
   const prefix = labelMap[encounterType] || "Session";
@@ -70,7 +70,7 @@ export function createDefaultSession(id: string, overrides: Partial<WorkspaceSes
     name: "Session 1",
     updatedAt: new Date().toISOString(),
     archived: false,
-    encounterType: "Cardiac ward round",
+    encounterType: "Ward round",
     transcriptionLanguage: "en",
     transcript: demoTranscript,
     output: outputPlaceholder,

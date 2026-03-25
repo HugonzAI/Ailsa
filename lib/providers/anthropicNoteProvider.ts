@@ -28,10 +28,10 @@ function buildPrompt(transcript: string, encounterType?: EncounterType) {
   return buildStructuredCardiacPrompt(transcript, encounterType);
 }
 
-function sanitizeOutput(output: StructuredOutput, transcript: string): StructuredOutput {
+function sanitizeOutput(output: StructuredOutput, transcript: string, encounterType?: EncounterType): StructuredOutput {
   if (output.documentType === "cardiology_consultant_letter") return sanitizeConsultantLetter(output, transcript);
   if (output.documentType === "cardiac_discharge_summary") return sanitizeDischargeSummary(output, transcript);
-  return sanitizeStructuredCardiacNote(output, transcript);
+  return sanitizeStructuredCardiacNote(output, transcript, encounterType);
 }
 
 function parseOutput(parsed: unknown, encounterType?: EncounterType): StructuredOutput {
@@ -88,7 +88,7 @@ export class AnthropicNoteProvider implements NoteProvider {
       throw new Error("Model did not return valid structured JSON.");
     }
 
-    const structured = sanitizeOutput(parseOutput(parsed, encounterType), transcript);
+    const structured = sanitizeOutput(parseOutput(parsed, encounterType), transcript, encounterType);
 
     return {
       soapNote: renderStructuredOutput(structured),
