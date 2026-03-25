@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { EncounterType, StructuredOutput } from "@/lib/types";
+import type { EncounterType, StructuredOutput, TranscriptSpeakerLine } from "@/lib/types";
 import {
   consultantDemoTranscript,
   dischargeDemoTranscript,
@@ -58,13 +58,54 @@ function chunkRecordingParts(parts: Blob[], maxPartsPerSegment = 20) {
   return segments;
 }
 
+function buildGenerationTranscript(baseTranscript: string, speakerLines: TranscriptSpeakerLine[]) {
+  if (!speakerLines.length) return baseTranscript;
+
+  const grouped = {
+    patient: speakerLines.filter((line) => line.speaker === "Patient"),
+    clinician: speakerLines.filter((line) => line.speaker === "Doctor"),
+    nursing: speakerLines.filter((line) => line.speaker === "Nurse"),
+    family: speakerLines.filter((line) => line.speaker === "Family"),
+    unknown: speakerLines.filter((line) => line.speaker === "Unknown" || line.speaker.startsWith("Speaker ")),
+  };
+
+  const sections = [
+    "[Full speaker-aware transcript]",
+    ...speakerLines.map((line) => `${line.speaker}: ${line.text}`),
+  ];
+
+  if (grouped.patient.length) {
+    sections.push("", "[Patient-reported content]", ...grouped.patient.map((line) => line.text));
+  }
+
+  if (grouped.clinician.length) {
+    sections.push("", "[Clinician-stated assessment/plan/questions]", ...grouped.clinician.map((line) => line.text));
+  }
+
+  if (grouped.nursing.length) {
+    sections.push("", "[Nursing observations / handover]", ...grouped.nursing.map((line) => line.text));
+  }
+
+  if (grouped.family.length) {
+    sections.push("", "[Family / collateral history]", ...grouped.family.map((line) => line.text));
+  }
+
+  if (grouped.unknown.length) {
+    sections.push("", "[Uncertain speaker content]", ...grouped.unknown.map((line) => `${line.speaker}: ${line.text}`));
+  }
+
+  sections.push("", "[Fallback raw transcript]", baseTranscript);
+
+  return sections.join("\n").trim();
+}
+
 async function transcribeAudioSegment(file: File, language: string) {
   const formData = new FormData();
   formData.append("audio", file);
   formData.append("language", language);
   const response = await fetch("/api/transcribe", { method: "POST", body: formData });
   if (!response.ok) throw new Error(`Transcription failed with status ${response.status}`);
-  return (await response.json()) as { transcript: string; mode: string; filename?: string };
+  return (await response.json()) as { transcript: string; speakerLines?: TranscriptSpeakerLine[]; mode: string; filename?: string };
 }
 
 export function NoteStudio() {
@@ -81,6 +122,7 @@ export function NoteStudio() {
   const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
   const [transcriptConfirmed, setTranscriptConfirmed] = useState(false);
   const [transcriptFromAudio, setTranscriptFromAudio] = useState(false);
+  const [speakerLines, setSpeakerLines] = useState<TranscriptSpeakerLine[]>([]);
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [showEvidence, setShowEvidence] = useState(true);
@@ -186,7 +228,7 @@ export function NoteStudio() {
       const response = await fetch("/api/generate-note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, encounterType }),
+        body: JSON.stringify({ transcript: buildGenerationTranscript(transcript, speakerLines), encounterType }),
       });
       if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
       const data = (await response.json()) as { soapNote: string; mode: string; structured: StructuredOutput };
@@ -230,6 +272,7 @@ export function NoteStudio() {
 
     try {
       let transcriptParts: string[] = [];
+      let aggregatedSpeakerLines: TranscriptSpeakerLine[] = [];
       let mode = "provider";
 
       for (let index = 0; index < segments.length; index += 1) {
@@ -253,12 +296,14 @@ export function NoteStudio() {
         mode = data.mode;
         const cleaned = data.transcript.trim();
         if (cleaned) transcriptParts.push(cleaned);
+        if (data.speakerLines?.length) aggregatedSpeakerLines.push(...data.speakerLines);
 
         const partialTranscript = transcriptParts.join("\n\n").trim();
         await saveStoredRecording({
           ...stored,
           status: "transcribing",
           transcript: partialTranscript,
+          speakerLines: aggregatedSpeakerLines,
           updatedAt: new Date().toISOString(),
           error: undefined,
         });
@@ -267,6 +312,7 @@ export function NoteStudio() {
 
       const combinedTranscript = transcriptParts.join("\n\n").trim();
       setTranscript(combinedTranscript);
+      setSpeakerLines(aggregatedSpeakerLines);
       setTranscriptConfirmed(false);
       setTranscriptFromAudio(true);
       setStatus(`Transcript ready · ${mode} mode${segments.length > 1 ? ` · ${segments.length} segments` : ""}`);
@@ -275,6 +321,7 @@ export function NoteStudio() {
         ...stored,
         status: "transcribed",
         transcript: combinedTranscript,
+        speakerLines: aggregatedSpeakerLines,
         updatedAt: new Date().toISOString(),
         error: undefined,
       });
@@ -419,6 +466,7 @@ export function NoteStudio() {
     else if (encounterType === "Cardiac discharge") setTranscript(dischargeDemoTranscript);
     else setTranscript(demoTranscript);
 
+    setSpeakerLines([]);
     setSelectedFile(null);
     setTranscriptConfirmed(false);
     setTranscriptFromAudio(false);
@@ -503,6 +551,7 @@ export function NoteStudio() {
           }}
           onTranscriptChange={(next) => {
             setTranscript(next);
+            setSpeakerLines([]);
             if (selectedFile) setTranscriptConfirmed(false);
           }}
           onConfirmTranscript={() => setTranscriptConfirmed(true)}
@@ -516,6 +565,7 @@ export function NoteStudio() {
             const found = recordings.find((item) => item.id === id);
             if (!found?.transcript) return;
             setTranscript(found.transcript);
+            setSpeakerLines(found.speakerLines || []);
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(true);
             setStatus(`Loaded saved transcript · ${found.filename}`);

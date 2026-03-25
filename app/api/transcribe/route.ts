@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { WhisperTranscribeProvider } from "@/lib/providers/whisperTranscribeProvider";
+import { TranscriptPostProcessor } from "@/lib/providers/transcriptPostProcessor";
+import { TranscriptNormalizer } from "@/lib/providers/transcriptNormalizer";
 import type { TranscriptionResponse } from "@/lib/types";
 
 function buildMockTranscript(filename?: string) {
@@ -28,6 +30,14 @@ export async function POST(request: Request) {
   if (mockMode) {
     const response: TranscriptionResponse = {
       transcript: buildMockTranscript(file.name),
+      speakerLines: [
+        { speaker: "Doctor", text: "Hi, what brings you in today?" },
+        { speaker: "Patient", text: "I have had a sore throat, fever, and mild cough for the past two days." },
+        { speaker: "Doctor", text: "Any shortness of breath or chest pain?" },
+        { speaker: "Patient", text: "No shortness of breath and no chest pain." },
+        { speaker: "Doctor", text: "Any medication allergies?" },
+        { speaker: "Patient", text: "No known drug allergies." },
+      ],
       mode: "mock",
       filename: file.name,
     };
@@ -37,9 +47,18 @@ export async function POST(request: Request) {
   try {
     const provider = new WhisperTranscribeProvider();
     const transcript = await provider.transcribe(file, file.name, typeof language === "string" ? language : undefined);
+    const postProcessor = new TranscriptPostProcessor();
+    const speakerAware = await postProcessor.enhance(transcript);
+    const normalizer = new TranscriptNormalizer();
+    const normalizedTranscript = normalizer.normalize(speakerAware.transcript);
+    const normalizedSpeakerLines = speakerAware.speakerLines.map((line) => ({
+      ...line,
+      text: normalizer.normalize(line.text),
+    }));
 
     const result: TranscriptionResponse = {
-      transcript,
+      transcript: normalizedTranscript,
+      speakerLines: normalizedSpeakerLines,
       mode: "provider",
       filename: file.name,
     };

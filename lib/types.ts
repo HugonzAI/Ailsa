@@ -126,8 +126,16 @@ export type NoteGenerationResponse = {
   mode: "mock" | "provider";
 };
 
+export type TranscriptSpeaker = "Doctor" | "Patient" | "Nurse" | "Family" | "Unknown" | "Speaker 1" | "Speaker 2" | "Speaker 3";
+
+export type TranscriptSpeakerLine = {
+  speaker: TranscriptSpeaker;
+  text: string;
+};
+
 export type TranscriptionResponse = {
   transcript: string;
+  speakerLines?: TranscriptSpeakerLine[];
   mode: "mock" | "provider";
   filename?: string;
 };

@@ -99,7 +99,7 @@ export function IntakeRail({
         </div>
 
         <div className="fieldGroup">
-          <label className="microLabel" htmlFor="transcriptionLanguage">Transcription Language</label>
+          <label className="microLabel" htmlFor="transcriptionLanguage">Spoken Language</label>
           <select
             id="transcriptionLanguage"
             className="stitchSelect"
