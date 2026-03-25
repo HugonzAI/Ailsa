@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { EncounterType, StructuredCardiacNote } from "@/lib/types";
+import type { EncounterType, PatientContext, StructuredCardiacNote } from "@/lib/types";
 
 const demoTranscript = `Registrar: Overnight she was less breathless and there was no further chest pain.
 Nurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm.
@@ -22,8 +22,14 @@ const encounterOptions: EncounterType[] = [
   "Syncope / presyncope review",
 ];
 
+const emptyPatientContext: PatientContext = {
+  explicitDemographics: "",
+  explicitAdmissionReason: "",
+  explicitCardiacBackground: [],
+};
+
 const emptyStructured: StructuredCardiacNote = {
-  patientContext: "",
+  patientContext: emptyPatientContext,
   overnightEvents: "",
   symptoms: "",
   observations: "",
@@ -128,8 +134,18 @@ export function NoteStudio() {
     }
   }
 
+  const patientContextText = [
+    structured.patientContext.explicitDemographics,
+    structured.patientContext.explicitAdmissionReason,
+    ...(structured.patientContext.explicitCardiacBackground.length
+      ? [`Background: ${structured.patientContext.explicitCardiacBackground.join("; ")}`]
+      : []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const hasStructuredContent =
-    Boolean(structured.patientContext) ||
+    Boolean(patientContextText) ||
     Boolean(structured.overnightEvents) ||
     Boolean(structured.symptoms) ||
     Boolean(structured.observations) ||
@@ -200,7 +216,7 @@ export function NoteStudio() {
 
         {hasStructuredContent ? (
           <div className="structuredGrid">
-            <div className="structuredSection"><span className="label">Patient Context</span><div className="output compact">{structured.patientContext || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Patient Context</span><div className="output compact">{patientContextText || "—"}</div></div>
             <div className="structuredSection"><span className="label">Overnight / Interval Events</span><div className="output compact">{structured.overnightEvents || "—"}</div></div>
             <div className="structuredSection"><span className="label">Symptoms</span><div className="output compact">{structured.symptoms || "—"}</div></div>
             <div className="structuredSection"><span className="label">Observations</span><div className="output compact">{structured.observations || "—"}</div></div>

@@ -1,4 +1,4 @@
-import type { StructuredCardiacNote } from "@/lib/types";
+import type { PatientContext, StructuredCardiacNote } from "@/lib/types";
 
 export function getAnthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY || null;
@@ -8,9 +8,17 @@ export function getAnthropicModel() {
   return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 }
 
+export function emptyPatientContext(): PatientContext {
+  return {
+    explicitDemographics: "",
+    explicitAdmissionReason: "",
+    explicitCardiacBackground: [],
+  };
+}
+
 export function emptyStructuredNote(): StructuredCardiacNote {
   return {
-    patientContext: "",
+    patientContext: emptyPatientContext(),
     overnightEvents: "",
     symptoms: "",
     observations: "",
@@ -37,7 +45,11 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "If a diagnosis is only implied rather than explicitly stated, phrase it conservatively in assessment instead of placing it as a hard patient-context fact.",
     "Use this exact JSON shape:",
     '{',
-    '  "patientContext": "",',
+    '  "patientContext": {',
+    '    "explicitDemographics": "",',
+    '    "explicitAdmissionReason": "",',
+    '    "explicitCardiacBackground": [""]',
+    '  },',
     '  "overnightEvents": "",',
     '  "symptoms": "",',
     '  "observations": "",',
@@ -61,10 +73,20 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
   ].join("\n");
 }
 
+function formatPatientContext(context: PatientContext) {
+  const parts = [
+    context.explicitDemographics,
+    context.explicitAdmissionReason,
+    ...(context.explicitCardiacBackground.length ? [`Background: ${context.explicitCardiacBackground.join('; ')}`] : []),
+  ].filter(Boolean);
+
+  return parts.join("\n");
+}
+
 export function renderStructuredNote(note: StructuredCardiacNote) {
   return [
     "Patient Context",
-    note.patientContext || "",
+    formatPatientContext(note.patientContext),
     "",
     "Overnight / Interval Events",
     note.overnightEvents || "",
@@ -95,6 +117,36 @@ export function renderStructuredNote(note: StructuredCardiacNote) {
   ].join("\n").trim();
 }
 
+function coercePatientContext(value: unknown): PatientContext {
+  const data = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
+  const toStringValue = (input: unknown) => (typeof input === "string" ? input.trim() : "");
+  const toStringArray = (input: unknown) =>
+    Array.isArray(input) ? input.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean) : [];
+
+  return {
+    explicitDemographics: toStringValue(data.explicitDemographics),
+    explicitAdmissionReason: toStringValue(data.explicitAdmissionReason),
+    explicitCardiacBackground: toStringArray(data.explicitCardiacBackground),
+  };
+}
+
+export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
+  const lower = transcript.toLowerCase();
+
+  const hasExplicitSex = /(female|male|woman|man|she\b|he\b)/i.test(transcript);
+  const hasExplicitAdmission = /(admitted|admission|presented with|admitted with|admitted for|reason for admission)/i.test(lower);
+  const hasExplicitBackground = /(history of|known|background|past medical history|pmhx|prior|underlying)/i.test(lower);
+
+  return {
+    ...note,
+    patientContext: {
+      explicitDemographics: hasExplicitSex ? note.patientContext.explicitDemographics : "",
+      explicitAdmissionReason: hasExplicitAdmission ? note.patientContext.explicitAdmissionReason : "",
+      explicitCardiacBackground: hasExplicitBackground ? note.patientContext.explicitCardiacBackground : [],
+    },
+  };
+}
+
 export function coerceStructuredCardiacNote(input: unknown): StructuredCardiacNote {
   const data = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
 
@@ -103,7 +155,7 @@ export function coerceStructuredCardiacNote(input: unknown): StructuredCardiacNo
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean) : [];
 
   return {
-    patientContext: toStringValue(data.patientContext),
+    patientContext: coercePatientContext(data.patientContext),
     overnightEvents: toStringValue(data.overnightEvents),
     symptoms: toStringValue(data.symptoms),
     observations: toStringValue(data.observations),

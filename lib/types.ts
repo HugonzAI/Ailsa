@@ -12,8 +12,14 @@ export type NoteGenerationRequest = {
   encounterType?: EncounterType;
 };
 
+export type PatientContext = {
+  explicitDemographics: string;
+  explicitAdmissionReason: string;
+  explicitCardiacBackground: string[];
+};
+
 export type StructuredCardiacNote = {
-  patientContext: string;
+  patientContext: PatientContext;
   overnightEvents: string;
   symptoms: string;
   observations: string;

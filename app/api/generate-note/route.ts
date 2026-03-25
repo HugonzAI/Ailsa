@@ -2,16 +2,20 @@ import { NextResponse } from "next/server";
 import {
   buildStructuredCardiacPrompt,
   coerceStructuredCardiacNote,
-  emptyStructuredNote,
   getAnthropicApiKey,
   getAnthropicModel,
   renderStructuredNote,
+  sanitizeStructuredCardiacNote,
 } from "@/lib/anthropic";
 import type { NoteGenerationRequest, NoteGenerationResponse } from "@/lib/types";
 
 function buildMockStructuredNote() {
   return {
-    patientContext: "Admitted under cardiology with decompensated HFrEF and reduced EF on recent echo.",
+    patientContext: {
+      explicitDemographics: "",
+      explicitAdmissionReason: "Admitted under cardiology with decompensated HFrEF.",
+      explicitCardiacBackground: ["Reduced EF on recent echo"],
+    },
     overnightEvents: "Less breathless overnight. No recurrent chest pain. Brief AF noted on telemetry and self-resolved.",
     symptoms: "Improved dyspnoea today. No ongoing chest pain or palpitations.",
     observations: "Haemodynamically stable. Weight down and negative fluid balance documented.",
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
   const mockMode = process.env.MOCK_NOTE_GENERATION !== "0";
 
   if (mockMode) {
-    const structured = buildMockStructuredNote();
+    const structured = sanitizeStructuredCardiacNote(buildMockStructuredNote(), transcript);
     const response: NoteGenerationResponse = {
       soapNote: renderStructuredNote(structured),
       structured,
@@ -120,7 +124,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const structured = coerceStructuredCardiacNote(parsed);
+    const structured = sanitizeStructuredCardiacNote(coerceStructuredCardiacNote(parsed), transcript);
     const result: NoteGenerationResponse = {
       soapNote: renderStructuredNote(structured),
       structured,
