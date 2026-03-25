@@ -3,6 +3,11 @@ main = ".open-next/worker.js"
 compatibility_date = "2026-03-24"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+MOCK_TRANSCRIPTION = "0"
+MOCK_NOTE_GENERATION = "0"
+ANTHROPIC_MODEL = "claude-sonnet-4-5"
+
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
