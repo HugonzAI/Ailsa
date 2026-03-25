@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildSoapPrompt, getAnthropicClient, getAnthropicModel } from "@/lib/anthropic";
+import { buildSoapPrompt, getAnthropicApiKey, getAnthropicModel } from "@/lib/anthropic";
 import type { NoteGenerationRequest, NoteGenerationResponse } from "@/lib/types";
 
 function buildMockSoapNote(transcript: string): string {
@@ -45,8 +45,8 @@ export async function POST(request: Request) {
     return NextResponse.json(response);
   }
 
-  const client = getAnthropicClient();
-  if (!client) {
+  const apiKey = getAnthropicApiKey();
+  if (!apiKey) {
     return NextResponse.json(
       {
         error: "ANTHROPIC_API_KEY is missing. Add it to .env.local or re-enable mock mode.",
@@ -56,31 +56,54 @@ export async function POST(request: Request) {
   }
 
   try {
-    const completion = await client.messages.create({
-      model: getAnthropicModel(),
-      max_tokens: 900,
-      temperature: 0.2,
-      system: "You produce draft clinical SOAP notes for clinician review.",
-      messages: [
-        {
-          role: "user",
-          content: buildSoapPrompt(transcript, body.encounterType),
-        },
-      ],
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: getAnthropicModel(),
+        max_tokens: 900,
+        temperature: 0.2,
+        system: "You produce draft clinical SOAP notes for clinician review.",
+        messages: [
+          {
+            role: "user",
+            content: buildSoapPrompt(transcript, body.encounterType),
+          },
+        ],
+      }),
     });
 
-    const text = completion.content
+    const json = (await response.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      error?: { message?: string };
+    };
+
+    if (!response.ok) {
+      console.error("Claude note generation failed", json);
+      return NextResponse.json(
+        {
+          error: json.error?.message || "Claude note generation failed.",
+        },
+        { status: 502 },
+      );
+    }
+
+    const text = (json.content || [])
       .filter((block) => block.type === "text")
-      .map((block) => block.text)
+      .map((block) => block.text || "")
       .join("\n")
       .trim();
 
-    const response: NoteGenerationResponse = {
+    const result: NoteGenerationResponse = {
       soapNote: text || "No note output returned.",
       mode: "provider",
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Claude note generation failed", error);
     return NextResponse.json(

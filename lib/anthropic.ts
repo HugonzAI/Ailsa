@@ -1,9 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-export function getAnthropicClient() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  return new Anthropic({ apiKey });
+export function getAnthropicApiKey() {
+  return process.env.ANTHROPIC_API_KEY || null;
 }
 
 export function getAnthropicModel() {
