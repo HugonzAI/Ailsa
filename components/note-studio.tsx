@@ -117,10 +117,19 @@ const emptyDischargeSummary: StructuredDischargeSummary = {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="structuredSection">
-      <span className="label">{title}</span>
-      <div className="output compact">{children || "—"}</div>
-    </div>
+    <article className="docSection">
+      <h2 className="docSectionTitle">{title}</h2>
+      <div className="docBody">{children || "—"}</div>
+    </article>
+  );
+}
+
+function SidecarBlock({ title, children, danger = false }: { title: string; children: React.ReactNode; danger?: boolean }) {
+  return (
+    <section className={`sidecarBlock${danger ? " danger" : ""}`}>
+      <h4 className="sidecarTitle">{title}</h4>
+      <div className="sidecarBody">{children || "—"}</div>
+    </section>
   );
 }
 
@@ -139,6 +148,42 @@ export function NoteStudio() {
     const words = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
     return { chars, words };
   }, [transcript]);
+
+  const patientContextText =
+    structured.documentType === "cardiac_inpatient_note" || structured.documentType === "cardiac_discharge_summary"
+      ? [
+          structured.patientContext.explicitDemographics,
+          structured.patientContext.explicitAdmissionReason,
+          ...(structured.patientContext.explicitCardiacBackground.length
+            ? [`Background: ${structured.patientContext.explicitCardiacBackground.join("; ")}`]
+            : []),
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "";
+
+  const consultantMedicationText =
+    structured.documentType === "cardiology_consultant_letter"
+      ? [
+          ["Antithrombotics", structured.currentMedications.antithrombotics],
+          ["Antihypertensives", structured.currentMedications.antihypertensives],
+          ["Heart failure medications", structured.currentMedications.heartFailureMedications],
+          ["Lipid-lowering agents", structured.currentMedications.lipidLoweringAgents],
+          ["Other medications", structured.currentMedications.otherMedications],
+        ]
+          .map(([label, items]) => `${label}: ${(items as string[]).join("; ") || "—"}`)
+          .join("\n")
+      : "";
+
+  const evidenceSupportText = structured.evidenceSupport.length
+    ? structured.evidenceSupport
+        .map((item) => `• ${[item.claim, item.rationale].filter(Boolean).join(" — ")} (${[item.evidenceType, item.confidence, item.citationLabel].filter(Boolean).join(" | ")})`)
+        .join("\n")
+    : "—";
+
+  const evidenceLimitationsText = structured.evidenceLimitations.length ? structured.evidenceLimitations.map((item) => `• ${item}`).join("\n") : "—";
+
+  const hasStructuredContent = output !== "Cardiology draft will appear here.";
 
   async function generate() {
     setLoading(true);
@@ -207,225 +252,211 @@ export function NoteStudio() {
     else setTranscript(demoTranscript);
   }
 
-  const patientContextText =
-    structured.documentType === "cardiac_inpatient_note" || structured.documentType === "cardiac_discharge_summary"
-      ? [
-          structured.patientContext.explicitDemographics,
-          structured.patientContext.explicitAdmissionReason,
-          ...(structured.patientContext.explicitCardiacBackground.length
-            ? [`Background: ${structured.patientContext.explicitCardiacBackground.join("; ")}`]
-            : []),
-        ]
-          .filter(Boolean)
-          .join("\n")
-      : "";
-
-  const consultantMedicationText =
-    structured.documentType === "cardiology_consultant_letter"
-      ? [
-          ["Antithrombotics", structured.currentMedications.antithrombotics],
-          ["Antihypertensives", structured.currentMedications.antihypertensives],
-          ["Heart failure medications", structured.currentMedications.heartFailureMedications],
-          ["Lipid-lowering agents", structured.currentMedications.lipidLoweringAgents],
-          ["Other medications", structured.currentMedications.otherMedications],
-        ]
-          .map(([label, items]) => `${label}: ${(items as string[]).join("; ") || "—"}`)
-          .join("\n")
-      : "";
-
-  const evidenceSupportText = structured.evidenceSupport.length
-    ? structured.evidenceSupport
-        .map((item) => `• ${[item.claim, item.rationale].filter(Boolean).join(" — ")} (${[item.evidenceType, item.confidence, item.citationLabel].filter(Boolean).join(" | ")})`)
-        .join("\n")
-    : "—";
-
-  const evidenceLimitationsText = structured.evidenceLimitations.length ? structured.evidenceLimitations.map((item) => `• ${item}`).join("\n") : "—";
-
-  const hasStructuredContent = output !== "Cardiology draft will appear here.";
-
   return (
-    <section className="workspaceShell">
-      <aside className="workspacePanel intakePanel">
-        <div className="panelHeader">
-          <h2>Encounter intake</h2>
-          <p>Capture audio or paste transcript text, then choose the documentation mode.</p>
+    <>
+      <header className="topBar">
+        <div className="topBarLeft">
+          <span className="brand">AILSA</span>
+          <nav className="topNav">
+            <a href="#">Encounter</a>
+            <a href="#">Clinical Draft</a>
+            <a href="#">Workflow</a>
+            <a href="#">Evidence</a>
+          </nav>
         </div>
-
-        <label className="label" htmlFor="encounterType">Encounter type</label>
-        <select
-          id="encounterType"
-          className="input"
-          value={encounterType}
-          onChange={(e) => {
-            const next = e.target.value as EncounterType;
-            setEncounterType(next);
-            setStructured(next === "Cardiology consultant letter" ? emptyConsultantLetter : next === "Cardiac discharge" ? emptyDischargeSummary : emptyStructuredNote);
-            setOutput("Cardiology draft will appear here.");
-          }}
-        >
-          {encounterOptions.map((option) => (
-            <option key={option} value={option}>{option}</option>
-          ))}
-        </select>
-
-        <label className="label" htmlFor="audio">Consultation audio</label>
-        <input id="audio" type="file" accept="audio/*" onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
-
-        <div className="buttonRow stackOnMobile">
-          <button className="buttonSecondary" type="button" onClick={transcribeAudio} disabled={transcribing}>
-            {transcribing ? "Transcribing…" : "Transcribe audio"}
-          </button>
+        <div className="topBarRight">
+          <button className="iconButton" type="button" aria-label="Notifications">◦</button>
+          <button className="iconButton" type="button" aria-label="Settings">⋯</button>
+          <div className="avatarDot" />
         </div>
+      </header>
 
-        {selectedFile ? <div className="meta compactMeta">Selected: {selectedFile.name}</div> : null}
+      <main className="clinicalWorkspace">
+        <section className="intakeRail">
+          <div className="intakeBlock">
+            <button className="newEncounterButton" type="button">New Encounter</button>
+            <h3 className="microHeading">Context</h3>
 
-        <label className="label" htmlFor="transcript">Consultation transcript</label>
-        <textarea id="transcript" className="textarea intakeTextarea" value={transcript} onChange={(e) => setTranscript(e.target.value)} />
-
-        <div className="statsRow">
-          <div className="statPill">{transcriptStats.words} words</div>
-          <div className="statPill">{transcriptStats.chars} chars</div>
-        </div>
-
-        <div className="buttonRow stackOnMobile">
-          <button className="button" type="button" onClick={generate} disabled={loading}>
-            {loading
-              ? "Generating…"
-              : structured.documentType === "cardiology_consultant_letter"
-                ? "Generate consultant letter"
-                : structured.documentType === "cardiac_discharge_summary"
-                  ? "Generate discharge summary"
-                  : "Generate clinical draft"}
-          </button>
-          <button className="buttonSecondary" type="button" onClick={resetDemoTranscript}>Reset demo</button>
-        </div>
-
-        <div className="meta">Status: {status}</div>
-      </aside>
-
-      <section className="workspacePanel draftPanel">
-        <div className="panelHeader draftHeader">
-          <div>
-            <h2>
-              {structured.documentType === "cardiology_consultant_letter"
-                ? "Clinical Draft · Consultant Letter"
-                : structured.documentType === "cardiac_discharge_summary"
-                  ? "Clinical Draft · Discharge Summary"
-                  : "Clinical Draft"}
-            </h2>
-            <p>
-              {structured.documentType === "cardiology_consultant_letter"
-                ? "Formal specialist-letter draft for GP/referrer-facing review."
-                : structured.documentType === "cardiac_discharge_summary"
-                  ? "Cardiac discharge summary draft focused on admission course, medication changes, follow-up, and pending items."
-                  : "Structured inpatient cardiology note for clinician review, keeping the main document central."}
-            </p>
-          </div>
-          <div className="buttonRow compact headerActions">
-            <button className="buttonSecondary" type="button" onClick={copyOutput}>Copy draft</button>
-            <button className="buttonSecondary" type="button" onClick={generate} disabled={loading}>Regenerate</button>
-          </div>
-        </div>
-
-        {hasStructuredContent ? (
-          structured.documentType === "cardiology_consultant_letter" ? (
-            <div className="draftDocumentGrid">
-              <Section title="Referral Context">{[structured.referralContext.openingLine, structured.referralContext.referrer, structured.referralContext.reasonForReferral, structured.referralContext.visitType].filter(Boolean).join("\n") || "—"}</Section>
-              <Section title="Cardiac Risk Factors">{structured.cardiacRiskFactors.length ? structured.cardiacRiskFactors.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Cardiac History">{structured.cardiacHistory.length ? structured.cardiacHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Other Medical History">{structured.otherMedicalHistory.length ? structured.otherMedicalHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Current Medications">{consultantMedicationText || "—"}</Section>
-              <Section title="Allergies">{structured.allergies.length ? structured.allergies.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Social History">{structured.socialHistory.length ? structured.socialHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Presenting History">{structured.presentingHistory || "—"}</Section>
-              <Section title="Physical Examination">{structured.physicalExamination || "—"}</Section>
-              <Section title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Summary">{structured.summary || "—"}</Section>
-              <Section title="Assessment / Plan">{structured.assessmentPlan.length ? structured.assessmentPlan.map((item, index) => `#${index + 1} ${item.problem}\nAssessment: ${item.assessment}\nPlan: ${item.plan}`).join("\n\n") : "—"}</Section>
-              <Section title="Follow Up">{structured.followUp || "—"}</Section>
-              <Section title="Closing">{structured.closing || "—"}</Section>
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="encounterType">Type</label>
+              <select
+                id="encounterType"
+                className="stitchSelect"
+                value={encounterType}
+                onChange={(e) => {
+                  const next = e.target.value as EncounterType;
+                  setEncounterType(next);
+                  setStructured(next === "Cardiology consultant letter" ? emptyConsultantLetter : next === "Cardiac discharge" ? emptyDischargeSummary : emptyStructuredNote);
+                  setOutput("Cardiology draft will appear here.");
+                }}
+              >
+                {encounterOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
             </div>
-          ) : structured.documentType === "cardiac_discharge_summary" ? (
-            <div className="draftDocumentGrid">
-              <Section title="Patient Context">{patientContextText || "—"}</Section>
-              <Section title="Admission Course">{structured.admissionCourse || "—"}</Section>
-              <Section title="Key Investigations">{structured.keyInvestigations.length ? structured.keyInvestigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Procedures">{structured.procedures.length ? structured.procedures.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Discharge Diagnoses">{structured.dischargeDiagnoses.length ? structured.dischargeDiagnoses.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Medication Changes">{structured.medicationChanges.length ? structured.medicationChanges.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Discharge Status">{structured.dischargeStatus || "—"}</Section>
-              <Section title="Follow Up Plans">{structured.followUpPlans.length ? structured.followUpPlans.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Discharge Instructions">{structured.dischargeInstructions.length ? structured.dischargeInstructions.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-            </div>
-          ) : (
-            <div className="draftDocumentGrid">
-              <Section title="Patient Context">{patientContextText || "—"}</Section>
-              <Section title="Overnight / Interval Events">{structured.overnightEvents || "—"}</Section>
-              <Section title="Symptoms">{structured.symptoms || "—"}</Section>
-              <Section title="Observations">{structured.observations || "—"}</Section>
-              <Section title="Examination">{structured.examination || "—"}</Section>
-              <Section title="Key Investigations">{structured.keyInvestigations || "—"}</Section>
-              <Section title="Assessment">{structured.assessment || "—"}</Section>
-              <Section title="Active Problems">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Plan Today">{structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Discharge Considerations">{structured.dischargeConsiderations || "—"}</Section>
-            </div>
-          )
-        ) : (
-          <div className="output draftPlaceholder">{output}</div>
-        )}
-      </section>
 
-      <aside className="workspaceRail">
-        <section className="workspacePanel railPanel">
-          <div className="panelHeader">
-            <h2>
-              {structured.documentType === "cardiology_consultant_letter"
-                ? "Workflow / Review"
-                : structured.documentType === "cardiac_discharge_summary"
-                  ? "Discharge Workflow"
-                  : "Workflow / Handover"}
-            </h2>
-            <p>
-              {structured.documentType === "cardiology_consultant_letter"
-                ? "Operational review items and next-step logic, separate from the letter body."
-                : structured.documentType === "cardiac_discharge_summary"
-                  ? "Follow-up, pending results, and escalation items associated with discharge."
-                  : "Tasks and next actions derived from the encounter."}
-            </p>
+            <button className="recordingButton" type="button" onClick={transcribeAudio} disabled={transcribing}>
+              <div className="recordingIcon">●</div>
+              <span>{transcribing ? "Transcribing…" : "Start Recording"}</span>
+            </button>
+
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="audio">Audio file</label>
+              <input id="audio" className="stitchInput" type="file" accept="audio/*" onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
+            </div>
+
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="transcript">Manual Transcript</label>
+              <textarea id="transcript" className="stitchTextarea large" value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={8} />
+            </div>
+
+            <div className="intakeStats">
+              <span>{transcriptStats.words} words</span>
+              <span>{transcriptStats.chars} chars</span>
+            </div>
+
+            <button className="primaryDarkButton" type="button" onClick={generate} disabled={loading}>
+              {loading
+                ? "Generating…"
+                : structured.documentType === "cardiology_consultant_letter"
+                  ? "Generate consultant letter"
+                  : structured.documentType === "cardiac_discharge_summary"
+                    ? "Generate discharge summary"
+                    : "Generate clinical draft"}
+            </button>
+            <button className="subtleButton" type="button" onClick={resetDemoTranscript}>Reset demo</button>
           </div>
+
+          <div className="intakeEvidenceToggle">
+            <button type="button" className="intakeEvidenceButton">Evidence Support</button>
+          </div>
+
+          <nav className="intakeFooterNav">
+            <span>Status: {status}</span>
+            {selectedFile ? <span>Audio: {selectedFile.name}</span> : null}
+          </nav>
+        </section>
+
+        <section className="draftWorkspace">
+          <div className="draftInner">
+            <header className="patientHeader refinedHeader">
+              <div>
+                <h1 className="patientTitle refinedTitle">
+                  {structured.documentType === "cardiology_consultant_letter"
+                    ? "Consultant Letter Draft"
+                    : structured.documentType === "cardiac_discharge_summary"
+                      ? "Discharge Summary Draft"
+                      : "Clinical Draft"}
+                </h1>
+                <div className="patientMetaRow refinedMetaRow">
+                  <span className="metaTag">{encounterType}</span>
+                  <span>{hasStructuredContent ? "Structured output ready" : "Awaiting generation"}</span>
+                  <span>{status}</span>
+                </div>
+              </div>
+              <div className="patientDateBlock">
+                <p>Date of Encounter</p>
+                <strong>{new Intl.DateTimeFormat("en-NZ", { day: "2-digit", month: "short", year: "numeric" }).format(new Date())}</strong>
+              </div>
+            </header>
+
+            {hasStructuredContent ? (
+              <div className="docStack">
+                {structured.documentType === "cardiology_consultant_letter" ? (
+                  <>
+                    <Section title="Referral Context">{[structured.referralContext.openingLine, structured.referralContext.referrer, structured.referralContext.reasonForReferral, structured.referralContext.visitType].filter(Boolean).join("\n") || "—"}</Section>
+                    <Section title="Cardiac Risk Factors">{structured.cardiacRiskFactors.length ? structured.cardiacRiskFactors.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Cardiac History">{structured.cardiacHistory.length ? structured.cardiacHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Other Medical History">{structured.otherMedicalHistory.length ? structured.otherMedicalHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Current Medications">{consultantMedicationText || "—"}</Section>
+                    <Section title="Allergies">{structured.allergies.length ? structured.allergies.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Social History">{structured.socialHistory.length ? structured.socialHistory.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Presenting History">{structured.presentingHistory || "—"}</Section>
+                    <Section title="Physical Examination">{structured.physicalExamination || "—"}</Section>
+                    <Section title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Summary">{structured.summary || "—"}</Section>
+                    <Section title="Assessment & Management Plan">{structured.assessmentPlan.length ? structured.assessmentPlan.map((item, index) => `#${index + 1} ${item.problem}\nAssessment: ${item.assessment}\nPlan: ${item.plan}`).join("\n\n") : "—"}</Section>
+                    <Section title="Follow Up">{structured.followUp || "—"}</Section>
+                    <Section title="Closing">{structured.closing || "—"}</Section>
+                  </>
+                ) : structured.documentType === "cardiac_discharge_summary" ? (
+                  <>
+                    <Section title="Patient Context">{patientContextText || "—"}</Section>
+                    <Section title="Admission Course">{structured.admissionCourse || "—"}</Section>
+                    <Section title="Key Investigations">{structured.keyInvestigations.length ? structured.keyInvestigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Procedures">{structured.procedures.length ? structured.procedures.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Discharge Diagnoses">{structured.dischargeDiagnoses.length ? structured.dischargeDiagnoses.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Medication Changes">{structured.medicationChanges.length ? structured.medicationChanges.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Discharge Status">{structured.dischargeStatus || "—"}</Section>
+                    <Section title="Follow Up Plans">{structured.followUpPlans.length ? structured.followUpPlans.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Discharge Instructions">{structured.dischargeInstructions.length ? structured.dischargeInstructions.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                  </>
+                ) : (
+                  <>
+                    <Section title="Interval History">{structured.overnightEvents || "—"}</Section>
+                    <Section title="Objective Findings">{structured.observations || "—"}</Section>
+                    <Section title="Physical Examination">{structured.examination || "—"}</Section>
+                    <Section title="Assessment & Management Plan">{[structured.assessment, structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : ""].filter(Boolean).join("\n\n") || "—"}</Section>
+                    <Section title="Patient Context">{patientContextText || "—"}</Section>
+                    <Section title="Symptoms">{structured.symptoms || "—"}</Section>
+                    <Section title="Key Investigations">{structured.keyInvestigations || "—"}</Section>
+                    <Section title="Active Problems">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</Section>
+                    <Section title="Discharge Considerations">{structured.dischargeConsiderations || "—"}</Section>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="emptyDraftState">{output}</div>
+            )}
+
+            <footer className="evidenceFooter stickyEvidenceFooter">
+              <div className="evidenceFooterLeft">
+                <span className="evidenceFooterLabel">Evidence Support</span>
+                <div className="evidenceChips">
+                  <span className="evidenceChip primary">Guideline-aware</span>
+                  <span className="evidenceChip">Limitations {structured.evidenceLimitations.length}</span>
+                </div>
+              </div>
+              <div className="footerActions">
+                <button className="secondaryAction" type="button" onClick={copyOutput}>Copy</button>
+                <button className="secondaryAction" type="button" onClick={generate} disabled={loading}>Regenerate</button>
+              </div>
+            </footer>
+          </div>
+        </section>
+
+        <aside className="sidecarRail">
+          <h3 className="microHeading sidecarHeading">Operational Sidecar</h3>
 
           {structured.documentType === "cardiology_consultant_letter" ? (
-            <div className="railStack">
-              <Section title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Follow Up">{structured.followUp || "—"}</Section>
-            </div>
+            <>
+              <SidecarBlock title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
+              <SidecarBlock title="Follow Up">{structured.followUp || "—"}</SidecarBlock>
+            </>
           ) : structured.documentType === "cardiac_discharge_summary" ? (
-            <div className="railStack">
-              <Section title="Pending Results">{structured.pendingResults.length ? structured.pendingResults.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Escalation Advice">{structured.escalationAdvice || "—"}</Section>
-            </div>
+            <>
+              <SidecarBlock title="Pending Results">{structured.pendingResults.length ? structured.pendingResults.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
+              <SidecarBlock title="Escalation Advice" danger>{structured.escalationAdvice || "—"}</SidecarBlock>
+            </>
           ) : (
-            <div className="railStack">
-              <Section title="Tasks Allocated">{structured.tasksAllocated.length ? structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n") : "—"}</Section>
-              <Section title="Action Summary">{structured.actionSummary.length ? structured.actionSummary.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-              <Section title="Next Review">{structured.nextReview || "—"}</Section>
-              <Section title="Escalations / Safety Concerns">{structured.escalationsSafetyConcerns || "—"}</Section>
-            </div>
+            <>
+              <SidecarBlock title="Active Risks" danger>{structured.escalationsSafetyConcerns || "No active safety concerns recorded."}</SidecarBlock>
+              <SidecarBlock title="Pending Tasks">{structured.tasksAllocated.length ? structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n") : "—"}</SidecarBlock>
+              <SidecarBlock title="Continuity">{structured.nextReview || "—"}</SidecarBlock>
+              <SidecarBlock title="Action Summary">{structured.actionSummary.length ? structured.actionSummary.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
+            </>
           )}
-        </section>
 
-        <section className="workspacePanel railPanel subduedPanel">
-          <div className="panelHeader">
-            <h2>Evidence Support</h2>
-            <p>Separate support layer. Useful for review, but quieter than the main document.</p>
+          <SidecarBlock title="Evidence Support">{evidenceSupportText}</SidecarBlock>
+          <SidecarBlock title="Evidence Limitations">{evidenceLimitationsText}</SidecarBlock>
+
+          <div className="sidecarButtons">
+            <button className="primarySidecarButton" type="button" onClick={copyOutput}>Finalize to EMR</button>
+            <button className="secondarySidecarButton" type="button" onClick={resetDemoTranscript}>Load Demo</button>
           </div>
-          <div className="railStack">
-            <Section title="Evidence Support">{evidenceSupportText}</Section>
-            <Section title="Evidence Limitations">{evidenceLimitationsText}</Section>
-          </div>
-        </section>
-      </aside>
-    </section>
+        </aside>
+      </main>
+    </>
   );
 }
