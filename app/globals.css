@@ -151,6 +151,16 @@ button { border: 0; background: none; }
 }
 .speakerReviewButton.confirm { background:#dcfce7; color:#166534; }
 .speakerReviewButton.reset { background:#fff; border:1px solid rgba(203,213,225,0.6); color:var(--muted); }
+.speakerFilterChips { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.speakerFilterChip {
+  display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px; background:#fff;
+  border:1px solid rgba(203,213,225,0.55); color:var(--muted); font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer;
+}
+.speakerFilterChip strong {
+  display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--surface-2); color:var(--text); font-size:10px;
+}
+.speakerFilterChip.active { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
+.speakerFilterChip.active strong { background:#dbeafe; color:#1d4ed8; }
 .speakerLinesList { display:grid; gap:8px; max-height:240px; overflow:auto; padding-right:4px; }
 .speakerLineCard { padding:10px 12px; border-radius:14px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:6px; }
 .speakerLineHeader strong { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); }

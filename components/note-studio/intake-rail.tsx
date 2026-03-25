@@ -1,4 +1,5 @@
-import type { EncounterType, TranscriptSpeakerLine } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { EncounterType, TranscriptSpeaker, TranscriptSpeakerLine } from "@/lib/types";
 import { encounterOptions } from "@/components/note-studio/constants";
 import type { StoredRecording } from "@/components/note-studio/recording-store";
 
@@ -51,6 +52,18 @@ function formatRecordingSeconds(totalSeconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+const speakerFilterOrder: ("All" | TranscriptSpeaker)[] = [
+  "All",
+  "Doctor",
+  "Patient",
+  "Nurse",
+  "Family",
+  "Unknown",
+  "Speaker 1",
+  "Speaker 2",
+  "Speaker 3",
+];
+
 export function IntakeRail({
   encounterType,
   transcript,
@@ -85,6 +98,31 @@ export function IntakeRail({
   onSpeakerLineTextChange,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
+  const [speakerFilter, setSpeakerFilter] = useState<"All" | TranscriptSpeaker>("All");
+
+  const speakerFilterCounts = useMemo(() => {
+    return speakerLines.reduce<Record<string, number>>((accumulator, line) => {
+      accumulator[line.speaker] = (accumulator[line.speaker] || 0) + 1;
+      return accumulator;
+    }, {});
+  }, [speakerLines]);
+
+  const filteredSpeakerLines = useMemo(() => {
+    return speakerLines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => speakerFilter === "All" || line.speaker === speakerFilter);
+  }, [speakerFilter, speakerLines]);
+
+  const availableSpeakerFilters = useMemo(
+    () => speakerFilterOrder.filter((speaker) => speaker === "All" || speakerFilterCounts[speaker] > 0),
+    [speakerFilterCounts],
+  );
+
+  useEffect(() => {
+    if (!availableSpeakerFilters.includes(speakerFilter)) {
+      setSpeakerFilter("All");
+    }
+  }, [availableSpeakerFilters, speakerFilter]);
 
   return (
     <section className="intakeRail">
@@ -213,8 +251,24 @@ export function IntakeRail({
                 </button>
               </div>
             </div>
+            <div className="speakerFilterChips">
+              {availableSpeakerFilters.map((speaker) => {
+                const count = speaker === "All" ? speakerLines.length : speakerFilterCounts[speaker] || 0;
+                return (
+                  <button
+                    key={speaker}
+                    type="button"
+                    className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}`}
+                    onClick={() => setSpeakerFilter(speaker)}
+                  >
+                    <span>{speaker}</span>
+                    <strong>{count}</strong>
+                  </button>
+                );
+              })}
+            </div>
             <div className="speakerLinesList">
-              {speakerLines.map((line, index) => (
+              {filteredSpeakerLines.map(({ line, index }) => (
                 <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}`}>
                   <div className="speakerLineHeader">
                     <select
