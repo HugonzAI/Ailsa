@@ -7,7 +7,7 @@ export function getAnthropicClient() {
 }
 
 export function getAnthropicModel() {
-  return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+  return process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
 }
 
 export function buildSoapPrompt(transcript: string, encounterType = "GP consultation") {
