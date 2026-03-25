@@ -308,6 +308,36 @@ export function buildDischargeSummaryPrompt(transcript: string) {
   ].join("\n");
 }
 
+function wrapReadableLine(value: string, max = 110) {
+  const input = value.trim();
+  if (!input || input.length <= max) return input;
+
+  const breakPatterns = ["; ", " — ", ", ", " and "];
+  for (const separator of breakPatterns) {
+    const parts = input.split(separator);
+    if (parts.length > 1) {
+      const lines: string[] = [];
+      let current = "";
+
+      for (const rawPart of parts) {
+        const part = rawPart.trim();
+        const candidate = current ? `${current}${separator}${part}` : part;
+        if (candidate.length <= max) {
+          current = candidate;
+        } else {
+          if (current) lines.push(current.trim());
+          current = part;
+        }
+      }
+
+      if (current) lines.push(current.trim());
+      if (lines.length > 1) return lines.join("\n");
+    }
+  }
+
+  return input;
+}
+
 function formatPatientContext(context: PatientContext) {
   return [
     context.explicitDemographics,
@@ -358,9 +388,9 @@ export function renderStructuredOutput(output: StructuredOutput) {
       [output.referralContext.openingLine, output.referralContext.referrer, output.referralContext.reasonForReferral, output.referralContext.visitType]
         .filter(Boolean)
         .join("\n"),
-      output.presentingHistory || "",
-      output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${item}`).join("\n")}` : "",
-      output.summary ? `Summary\n${output.summary}` : "",
+      wrapReadableLine(output.presentingHistory || ""),
+      output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+      output.summary ? `Summary\n${wrapReadableLine(output.summary)}` : "",
       output.assessmentPlan.length ? `Assessment / Plan\n${output.assessmentPlan.map(formatAssessmentPlanItem).join("\n\n")}` : "",
       output.followUp ? `Follow-up\n${output.followUp}` : "",
       [
@@ -383,18 +413,18 @@ export function renderStructuredOutput(output: StructuredOutput) {
 
   if (output.documentType === "cardiac_discharge_summary") {
     return [
-      output.admissionCourse ? `Admission Course\n${output.admissionCourse}` : "",
-      output.dischargeDiagnoses.length ? `Discharge Diagnoses\n${output.dischargeDiagnoses.map((item) => `- ${item}`).join("\n")}` : "",
-      output.medicationChanges.length ? `Medication Changes\n${output.medicationChanges.map((item) => `- ${item}`).join("\n")}` : "",
-      output.dischargeStatus ? `Discharge Status\n${output.dischargeStatus}` : "",
-      output.followUpPlans.length ? `Follow Up Plans\n${output.followUpPlans.map((item) => `- ${item}`).join("\n")}` : "",
-      output.dischargeInstructions.length ? `Discharge Instructions\n${output.dischargeInstructions.map((item) => `- ${item}`).join("\n")}` : "",
+      output.admissionCourse ? `Admission Course\n${wrapReadableLine(output.admissionCourse)}` : "",
+      output.dischargeDiagnoses.length ? `Discharge Diagnoses\n${output.dischargeDiagnoses.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+      output.medicationChanges.length ? `Medication Changes\n${output.medicationChanges.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+      output.dischargeStatus ? `Discharge Status\n${wrapReadableLine(output.dischargeStatus)}` : "",
+      output.followUpPlans.length ? `Follow Up Plans\n${output.followUpPlans.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+      output.dischargeInstructions.length ? `Discharge Instructions\n${output.dischargeInstructions.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
       [
         formatPatientContext(output.patientContext) ? `Patient Context\n${formatPatientContext(output.patientContext)}` : "",
-        output.keyInvestigations.length ? `Key Investigations\n${output.keyInvestigations.map((item) => `- ${item}`).join("\n")}` : "",
-        output.procedures.length ? `Procedures\n${output.procedures.map((item) => `- ${item}`).join("\n")}` : "",
-        output.pendingResults.length ? `Pending Results\n${output.pendingResults.map((item) => `- ${item}`).join("\n")}` : "",
-        output.escalationAdvice ? `Return Advice\n${output.escalationAdvice}` : "",
+        output.keyInvestigations.length ? `Key Investigations\n${output.keyInvestigations.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+        output.procedures.length ? `Procedures\n${output.procedures.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+        output.pendingResults.length ? `Pending Results\n${output.pendingResults.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+        output.escalationAdvice ? `Return Advice\n${wrapReadableLine(output.escalationAdvice)}` : "",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -406,28 +436,28 @@ export function renderStructuredOutput(output: StructuredOutput) {
 
   return [
     "Overnight",
-    output.overnightEvents || "",
+    wrapReadableLine(output.overnightEvents || ""),
     "",
     "Sx",
-    output.symptoms || "",
+    wrapReadableLine(output.symptoms || ""),
     "",
     "Obs",
-    output.observations || "",
+    wrapReadableLine(output.observations || ""),
     "",
     "Exam",
-    output.examination || "",
+    wrapReadableLine(output.examination || ""),
     "",
     "Ix",
-    output.keyInvestigations || "",
+    wrapReadableLine(output.keyInvestigations || ""),
     "",
     "Assessment",
-    output.assessment || "",
+    wrapReadableLine(output.assessment || ""),
     "",
     "Problems",
-    ...(output.activeProblems.length ? output.activeProblems.map((item) => `- ${item}`) : [""]),
+    ...(output.activeProblems.length ? output.activeProblems.flatMap((item) => wrapReadableLine(item).split("\n").map((line) => `- ${line}`)) : [""]),
     "",
     "Plan",
-    ...(output.planToday.length ? output.planToday.map((item) => `- ${item}`) : [""]),
+    ...(output.planToday.length ? output.planToday.flatMap((item) => wrapReadableLine(item).split("\n").map((line) => `- ${line}`)) : [""]),
   ]
     .join("\n")
     .trim();

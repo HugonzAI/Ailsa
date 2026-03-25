@@ -14,27 +14,6 @@ const BEAUTIFYING_PATTERNS = [
   /with improvement in/gi,
 ];
 
-function flattenStructured(structured) {
-  if (!structured || typeof structured !== "object") return "";
-  const parts = [];
-  const walk = (value) => {
-    if (value == null) return;
-    if (typeof value === "string") {
-      if (value.trim()) parts.push(value.trim());
-      return;
-    }
-    if (Array.isArray(value)) {
-      value.forEach(walk);
-      return;
-    }
-    if (typeof value === "object") {
-      Object.values(value).forEach(walk);
-    }
-  };
-  walk(structured);
-  return parts.join("\n");
-}
-
 function countBeautifying(text) {
   return BEAUTIFYING_PATTERNS.reduce((sum, pattern) => sum + (text.match(pattern) || []).length, 0);
 }
@@ -82,11 +61,11 @@ for (const fixture of fixtures) {
     continue;
   }
 
-  const fullText = flattenStructured(structured);
-  const beautifyHits = countBeautifying(fullText);
-  const includeHits = countMatches(fullText, fixture.expect.mustIncludeAny || []);
-  const avoidHits = countMatches(fullText, fixture.expect.mustAvoid || []);
-  const maxLineLength = getMaxLineLength(fullText);
+  const renderedText = String(data?.soapNote || "").trim();
+  const beautifyHits = countBeautifying(renderedText);
+  const includeHits = countMatches(renderedText, fixture.expect.mustIncludeAny || []);
+  const avoidHits = countMatches(renderedText, fixture.expect.mustAvoid || []);
+  const maxLineLength = getMaxLineLength(renderedText);
   const distinctPlanItems = getDistinctPlanItems(structured);
 
   let score = 100;
