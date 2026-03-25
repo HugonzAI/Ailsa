@@ -9,6 +9,8 @@ export function NoteStudio() {
   const [output, setOutput] = useState("SOAP draft will appear here.");
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   async function generate() {
     setLoading(true);
@@ -27,7 +29,7 @@ export function NoteStudio() {
 
       const data = (await response.json()) as { soapNote: string; mode: string };
       setOutput(data.soapNote);
-      setStatus(`Done · ${data.mode} mode`);
+      setStatus(`Draft ready · ${data.mode} mode`);
     } catch (error) {
       console.error(error);
       setStatus("Failed to generate note");
@@ -37,11 +39,60 @@ export function NoteStudio() {
     }
   }
 
+  async function transcribeAudio() {
+    if (!selectedFile) {
+      setStatus("Choose an audio file first");
+      return;
+    }
+
+    setTranscribing(true);
+    setStatus(`Transcribing ${selectedFile.name}...`);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", selectedFile);
+
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Transcription failed with status ${response.status}`);
+      }
+
+      const data = (await response.json()) as { transcript: string; mode: string; filename?: string };
+      setTranscript(data.transcript);
+      setStatus(`Transcript ready · ${data.mode} mode${data.filename ? ` · ${data.filename}` : ""}`);
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to transcribe audio");
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
   return (
     <div className="grid">
       <section className="card">
         <h2>Transcript input</h2>
-        <p>For MVP, paste the transcript or start with the seeded demo consultation.</p>
+        <p>For MVP, paste transcript text directly or upload audio and generate a transcript first.</p>
+
+        <label className="label" htmlFor="audio">Consultation audio</label>
+        <input
+          id="audio"
+          type="file"
+          accept="audio/*"
+          onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+        />
+
+        <div className="buttonRow">
+          <button className="buttonSecondary" type="button" onClick={transcribeAudio} disabled={transcribing}>
+            {transcribing ? "Transcribing…" : "Transcribe audio"}
+          </button>
+          {selectedFile ? <div className="meta">Selected: {selectedFile.name}</div> : null}
+        </div>
+
         <label className="label" htmlFor="transcript">Consultation transcript</label>
         <textarea id="transcript" className="textarea" value={transcript} onChange={(e) => setTranscript(e.target.value)} />
         <div className="buttonRow">

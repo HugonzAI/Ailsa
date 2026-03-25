@@ -4,7 +4,7 @@ Ailsa is a lightweight MVP skeleton for generating clinician-reviewable SOAP not
 
 ## Current scope
 
-- paste or upload transcript text
+- paste transcript text or upload audio
 - generate a draft SOAP note
 - review/edit the result in the browser
 - keep the architecture simple enough to iterate fast
@@ -41,3 +41,13 @@ To enable real note generation:
 4. Run `npm run dev`
 
 The API route will use Claude in provider mode when mock mode is disabled and a key is present.
+
+## Transcription integration
+
+To enable Whisper transcription:
+
+1. Set `OPENAI_API_KEY`
+2. Set `MOCK_TRANSCRIPTION=0`
+3. Upload an audio file in the UI
+
+While scaffolding, `MOCK_TRANSCRIPTION=1` keeps the product flow usable without an external transcription dependency.

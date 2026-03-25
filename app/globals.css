@@ -19,6 +19,15 @@ body {
 
 a { color: inherit; }
 button, textarea, input, select { font: inherit; }
+input[type="file"] {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  color: var(--muted);
+  margin-bottom: 12px;
+}
 
 .page {
   min-height: 100vh;
