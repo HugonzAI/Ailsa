@@ -16,6 +16,7 @@ const encounterOptions: EncounterType[] = [
   "Cardiac ward round",
   "Cardiac admission",
   "Cardiac discharge",
+  "Cardiac handover",
   "Chest pain / ACS review",
   "Decompensated heart failure",
   "AF / arrhythmia review",
@@ -38,6 +39,10 @@ const emptyStructured: StructuredCardiacNote = {
   assessment: "",
   activeProblems: [],
   planToday: [],
+  tasksAllocated: [],
+  actionSummary: [],
+  nextReview: "",
+  escalationsSafetyConcerns: "",
   dischargeConsiderations: "",
 };
 
@@ -154,6 +159,10 @@ export function NoteStudio() {
     Boolean(structured.assessment) ||
     structured.activeProblems.length > 0 ||
     structured.planToday.length > 0 ||
+    structured.tasksAllocated.length > 0 ||
+    structured.actionSummary.length > 0 ||
+    Boolean(structured.nextReview) ||
+    Boolean(structured.escalationsSafetyConcerns) ||
     Boolean(structured.dischargeConsiderations);
 
   return (
@@ -225,6 +234,10 @@ export function NoteStudio() {
             <div className="structuredSection"><span className="label">Assessment</span><div className="output compact">{structured.assessment || "—"}</div></div>
             <div className="structuredSection"><span className="label">Active Problems</span><div className="output compact">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
             <div className="structuredSection"><span className="label">Plan Today</span><div className="output compact">{structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Tasks Allocated</span><div className="output compact">{structured.tasksAllocated.length ? structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Action Summary</span><div className="output compact">{structured.actionSummary.length ? structured.actionSummary.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Next Review</span><div className="output compact">{structured.nextReview || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Escalations / Safety Concerns</span><div className="output compact">{structured.escalationsSafetyConcerns || "—"}</div></div>
             <div className="structuredSection"><span className="label">Discharge Considerations</span><div className="output compact">{structured.dischargeConsiderations || "—"}</div></div>
           </div>
         ) : (

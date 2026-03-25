@@ -2,6 +2,7 @@ export type EncounterType =
   | "Cardiac ward round"
   | "Cardiac admission"
   | "Cardiac discharge"
+  | "Cardiac handover"
   | "Chest pain / ACS review"
   | "Decompensated heart failure"
   | "AF / arrhythmia review"
@@ -18,6 +19,13 @@ export type PatientContext = {
   explicitCardiacBackground: string[];
 };
 
+export type TaskItem = {
+  task: string;
+  owner: string;
+  timing: string;
+  urgency: string;
+};
+
 export type StructuredCardiacNote = {
   patientContext: PatientContext;
   overnightEvents: string;
@@ -28,6 +36,10 @@ export type StructuredCardiacNote = {
   assessment: string;
   activeProblems: string[];
   planToday: string[];
+  tasksAllocated: TaskItem[];
+  actionSummary: string[];
+  nextReview: string;
+  escalationsSafetyConcerns: string;
   dischargeConsiderations: string;
 };
 

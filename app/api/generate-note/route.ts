@@ -18,9 +18,9 @@ function buildMockStructuredNote() {
     },
     overnightEvents: "Less breathless overnight. No recurrent chest pain. Brief AF noted on telemetry and self-resolved.",
     symptoms: "Improved dyspnoea today. No ongoing chest pain or palpitations.",
-    observations: "Haemodynamically stable. Weight down and negative fluid balance documented.",
-    examination: "Mildly elevated JVP, improving bibasal crackles, trace peripheral oedema.",
-    keyInvestigations: "Creatinine stable, potassium acceptable, troponin flat, echo with reduced LV systolic function.",
+    observations: "BP 108/64 | HR 78 | SpO2 96% RA | Afebrile | Wt down 1.2 kg | Fluid balance -1.4 L",
+    examination: "JVP mildly elevated. Bibasal crackles improved. Trace peripheral oedema.",
+    keyInvestigations: "Creatinine stable. K acceptable. Troponin flat. Echo with reduced LV systolic function.",
     assessment: "Improving decompensated HFrEF with favourable response to IV diuresis. Brief AF overnight now back in sinus rhythm.",
     activeProblems: [
       "Decompensated HFrEF, improving on IV diuresis",
@@ -33,6 +33,21 @@ function buildMockStructuredNote() {
       "Continue bisoprolol",
       "Reassess discharge readiness tomorrow if improvement continues",
     ],
+    tasksAllocated: [
+      {
+        task: "U&E review",
+        owner: "medical team",
+        timing: "today",
+        urgency: "",
+      },
+    ],
+    actionSummary: [
+      "Continue IV diuresis",
+      "Track renal function and electrolytes",
+      "Review rhythm recurrence on telemetry",
+    ],
+    nextReview: "Review again tomorrow; consider discharge in 24–48 hours if stable.",
+    escalationsSafetyConcerns: "",
     dischargeConsiderations: "Potential discharge in 24–48 hours if clinically stable with no further rhythm issues and ongoing response to treatment.",
   };
 }
@@ -78,9 +93,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: getAnthropicModel(),
-        max_tokens: 1200,
+        max_tokens: 1400,
         temperature: 0.1,
-        system: "You produce structured inpatient cardiology note data for clinician review.",
+        system: "You produce structured inpatient cardiology note and handover data for clinician review.",
         messages: [
           {
             role: "user",

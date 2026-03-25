@@ -33,14 +33,25 @@ We moved away from pure free-text output because we need:
 
 Main type: `StructuredCardiacNote`
 
-Important design choice:
+Important design choices:
 - `patientContext` is now **fieldized** instead of one free-text string
 - this is specifically to reduce hallucinated sex/age/admission context
+- workflow / handover fields are now also first-class, not just the clinical note body
 
 ### patientContext fields
 - `explicitDemographics`
 - `explicitAdmissionReason`
 - `explicitCardiacBackground[]`
+
+### workflow / handover fields
+- `tasksAllocated[]`
+- `actionSummary[]`
+- `nextReview`
+- `escalationsSafetyConcerns`
+
+Why these exist:
+- Heidi-style workflow value is not only in note drafting but also in converting the round into actions, handover tasks, and next review signals
+- Ailsa should learn from that workflow layer without mixing large evidence lectures into the core note body
 
 Rule:
 - if the transcript does not explicitly state a demographic or admission fact, leave it blank
