@@ -1,6 +1,13 @@
+export type EncounterType =
+  | "GP consultation"
+  | "Follow-up visit"
+  | "Urgent care"
+  | "Telehealth"
+  | "Specialist review";
+
 export type NoteGenerationRequest = {
   transcript: string;
-  encounterType?: string;
+  encounterType?: EncounterType;
 };
 
 export type NoteGenerationResponse = {
