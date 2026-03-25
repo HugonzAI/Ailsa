@@ -133,7 +133,7 @@ function coercePatientContext(value: unknown): PatientContext {
 export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
 
-  const hasExplicitSex = /(female|male|woman|man|she\b|he\b)/i.test(transcript);
+  const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
   const hasExplicitAdmission = /(admitted|admission|presented with|admitted with|admitted for|reason for admission)/i.test(lower);
   const hasExplicitBackground = /(history of|known|background|past medical history|pmhx|prior|underlying)/i.test(lower);
 

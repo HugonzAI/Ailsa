@@ -45,6 +45,7 @@ Important design choice:
 Rule:
 - if the transcript does not explicitly state a demographic or admission fact, leave it blank
 - do not infer sex, age, or background disease from vibe or from later assessment wording
+- pronouns like `he` / `she` are currently treated as insufficient evidence for explicit demographics; the transcript should explicitly say male/female/man/woman before demographics are populated
 
 ## Prompt strategy
 
