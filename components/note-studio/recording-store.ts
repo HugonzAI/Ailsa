@@ -1,4 +1,4 @@
-export type StoredRecordingStatus = "recording" | "saved" | "transcribing" | "transcribed" | "failed";
+export type StoredRecordingStatus = "recording" | "paused" | "saved" | "transcribing" | "transcribed" | "failed";
 
 import type { TranscriptSpeakerLine } from "@/lib/types";
 
@@ -6,6 +6,7 @@ export type StoredRecording = {
   id: string;
   createdAt: string;
   updatedAt: string;
+  sessionId?: string;
   encounterType: string;
   filename: string;
   mimeType: string;

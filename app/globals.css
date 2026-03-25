@@ -60,6 +60,22 @@ button { border: 0; background: none; }
 }
 .intakeBlock { display:grid; gap:16px; }
 .workspaceSessionHeader { display:grid; gap:10px; }
+.sessionRenameRow { display:grid; grid-template-columns: 1fr auto; gap:8px; }
+.recentSessionsList { display:grid; gap:8px; }
+.recentSessionButton {
+  width:100%; text-align:left; padding:10px 12px; border-radius:12px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:4px; cursor:pointer;
+}
+.recentSessionButton strong { font-size:12px; color:var(--text); }
+.recentSessionButton span { font-size:11px; color:var(--muted); }
+.recentSessionButton.active { border-color:#93c5fd; background:#eff6ff; }
+.sessionRenameButton {
+  padding:0 12px; border-radius:12px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; cursor:pointer;
+}
+.sessionAdminRow { display:flex; gap:8px; }
+.sessionAdminButton {
+  flex:1; padding:8px 10px; border-radius:10px; background:#fff; border:1px solid rgba(203,213,225,0.55); color:var(--muted); font-size:11px; font-weight:700; cursor:pointer;
+}
+.sessionAdminButton.danger { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
 .fieldGroup { display:grid; gap:6px; }
 .newEncounterButton,.primaryDarkButton,.primarySidecarButton {
   width:100%; border-radius:12px; font-weight:700; cursor:pointer;
@@ -96,6 +112,9 @@ button { border: 0; background: none; }
   color: #b91c1c;
   box-shadow: 0 0 0 6px rgba(239,68,68,0.08);
 }
+.recordingButton.isPaused {
+  border-color:#fcd34d; background:#fffbeb; color:#92400e; box-shadow:0 0 0 6px rgba(245,158,11,0.08);
+}
 .recordingIcon {
   width:40px; height:40px; border-radius:999px; display:grid; place-items:center;
   background:var(--primary-container); color:var(--primary); font-size:14px;
@@ -113,6 +132,14 @@ button { border: 0; background: none; }
 .recordingButton.isRecording .recordingMeta {
   color: #b91c1c;
 }
+.recordingControlRow { display:grid; gap:8px; }
+.recordingControlRow.split { grid-template-columns: 1fr 1fr; }
+.encounterSummaryCard {
+  padding:10px 12px; border-radius:14px; background:#fff; border:1px solid rgba(203,213,225,0.45); display:grid; gap:4px;
+}
+.encounterSummaryCard strong { font-size:12px; color:var(--text); }
+.encounterSummaryCard span { font-size:11px; color:var(--muted); }
+.conversationPlayback { width:100%; }
 .intakeStats { display:flex; gap:10px; flex-wrap:wrap; }
 .intakeStats span,.intakeFooterNav span { font-size:11px; color:var(--muted); }
 .transcriptReviewFlag {

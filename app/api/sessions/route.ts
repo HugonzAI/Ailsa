@@ -96,3 +96,23 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, mode: "d1" });
 }
+
+export async function DELETE(request: Request) {
+  const db = getDb();
+  if (!db) {
+    return NextResponse.json({ ok: true, mode: "no-db" });
+  }
+
+  const ownerKey = getOwnerKey(request);
+  const { searchParams } = new URL(request.url);
+  const sessionId = searchParams.get("id");
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "Session id is required." }, { status: 400 });
+  }
+
+  await ensureTable(db);
+  await db.prepare(`DELETE FROM ailsa_sessions WHERE session_key = ?`).bind(`${ownerKey}:${sessionId}`).run();
+
+  return NextResponse.json({ ok: true, mode: "d1" });
+}

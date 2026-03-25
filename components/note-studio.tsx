@@ -24,6 +24,7 @@ import {
   type StoredRecording,
 } from "@/components/note-studio/recording-store";
 import {
+  buildSmartSessionName,
   createDefaultSession,
   mergeWorkspaceSessions,
   WORKSPACE_SESSIONS_KEY,
@@ -125,6 +126,7 @@ export function NoteStudio() {
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptionLanguage, setTranscriptionLanguage] = useState("en");
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [encounterType, setEncounterType] = useState<EncounterType>("Cardiac ward round");
@@ -269,12 +271,16 @@ export function NoteStudio() {
       return;
     }
 
+    if (isRecordingPaused) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
       setRecordingSeconds((current) => current + 1);
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [isRecording]);
+  }, [isRecording, isRecordingPaused]);
 
   const transcriptStats = useMemo(() => {
     const chars = transcript.trim().length;
@@ -307,6 +313,27 @@ export function NoteStudio() {
           .map(([label, items]) => `${label}: ${(items as string[]).join("; ") || "—"}`)
           .join("\n")
       : "";
+
+  const currentSessionRecordings = useMemo(
+    () => recordings.filter((recording) => recording.sessionId === currentSessionId),
+    [recordings, currentSessionId],
+  );
+
+  const currentConversationRecording = useMemo(
+    () => [...currentSessionRecordings].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null,
+    [currentSessionRecordings],
+  );
+
+  const currentPlaybackUrl = useMemo(() => {
+    if (!currentConversationRecording?.chunks?.length) return null;
+    return URL.createObjectURL(new Blob(currentConversationRecording.chunks, { type: currentConversationRecording.mimeType || "audio/webm" }));
+  }, [currentConversationRecording]);
+
+  useEffect(() => {
+    return () => {
+      if (currentPlaybackUrl) URL.revokeObjectURL(currentPlaybackUrl);
+    };
+  }, [currentPlaybackUrl]);
 
   const hasStructuredContent = output !== outputPlaceholder;
   const transcriptNeedsConfirmation = Boolean(selectedFile && !transcriptConfirmed);
@@ -369,9 +396,17 @@ export function NoteStudio() {
     if (!response.ok) throw new Error(`Session save failed with status ${response.status}`);
   }
 
+  async function deleteCloudSession(sessionId: string) {
+    const response = await fetch(`/api/sessions?id=${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) throw new Error(`Session delete failed with status ${response.status}`);
+  }
+
   function createWorkspaceSession() {
     const next = createDefaultSession(crypto.randomUUID(), {
-      name: `Session ${workspaceSessions.length + 1}`,
+      name: buildSmartSessionName(encounterType, transcript),
     });
     const nextSessions = [next, ...workspaceSessions];
     setWorkspaceSessions(nextSessions);
@@ -405,6 +440,68 @@ export function NoteStudio() {
 
     setCurrentSessionId(sessionId);
     applySession(target);
+  }
+
+  function renameWorkspaceSession(name: string) {
+    const trimmed = name.trim();
+    if (!currentSessionId || !trimmed) return;
+
+    setWorkspaceSessions((current) =>
+      current.map((session) =>
+        session.id === currentSessionId ? { ...session, name: trimmed, updatedAt: new Date().toISOString() } : session,
+      ),
+    );
+    setStatus(`Renamed session to ${trimmed}`);
+  }
+
+  function autoRenameCurrentSessionIfGeneric(nextTranscript?: string, nextEncounterType?: EncounterType) {
+    const current = workspaceSessions.find((session) => session.id === currentSessionId);
+    if (!current) return;
+
+    const isGeneric = /^Session\s+\d+$/i.test(current.name) || /^(Ward round|Admission|Discharge|Handover|Chest pain|HF review|Arrhythmia|Syncope|Consult letter) · \d{2}/.test(current.name);
+    if (!isGeneric) return;
+
+    const nextName = buildSmartSessionName(nextEncounterType || encounterType, nextTranscript || transcript);
+    setWorkspaceSessions((sessions) =>
+      sessions.map((session) =>
+        session.id === currentSessionId ? { ...session, name: nextName, updatedAt: new Date().toISOString() } : session,
+      ),
+    );
+  }
+
+  function archiveCurrentSession() {
+    const current = workspaceSessions.find((session) => session.id === currentSessionId);
+    if (!current) return;
+
+    const archived = { ...current, archived: true, updatedAt: new Date().toISOString() };
+    const nextSessions = workspaceSessions.map((session) => (session.id === currentSessionId ? archived : session));
+    const nextActive = nextSessions.find((session) => !session.archived && session.id !== currentSessionId) || createDefaultSession(crypto.randomUUID(), {
+      name: buildSmartSessionName(encounterType, transcript),
+    });
+    const normalizedSessions = nextSessions.some((session) => session.id === nextActive.id) ? nextSessions : [nextActive, ...nextSessions];
+
+    setWorkspaceSessions(normalizedSessions);
+    setCurrentSessionId(nextActive.id);
+    applySession(nextActive);
+    setStatus(`Archived ${current.name}`);
+    void saveCloudSession(archived).catch((error) => console.error("Archive sync failed", error));
+  }
+
+  function deleteCurrentSession() {
+    const current = workspaceSessions.find((session) => session.id === currentSessionId);
+    if (!current) return;
+
+    const remaining = workspaceSessions.filter((session) => session.id !== currentSessionId);
+    const nextActive = remaining.find((session) => !session.archived) || createDefaultSession(crypto.randomUUID(), {
+      name: buildSmartSessionName(encounterType, transcript),
+    });
+    const normalizedSessions = remaining.length ? remaining : [nextActive];
+
+    setWorkspaceSessions(normalizedSessions);
+    setCurrentSessionId(nextActive.id);
+    applySession(nextActive);
+    setStatus(`Deleted ${current.name}`);
+    void deleteCloudSession(current.id).catch((error) => console.error("Delete sync failed", error));
   }
 
   async function refreshRecordings() {
@@ -449,6 +546,7 @@ export function NoteStudio() {
       setOutput(data.soapNote);
       setStructured(data.structured || emptyStructuredNote);
       setReviewStatus("pending");
+      autoRenameCurrentSessionIfGeneric(transcript, encounterType);
       setStatus(`Draft ready · ${data.mode} mode · ${encounterType}`);
     } catch (error) {
       console.error(error);
@@ -568,6 +666,7 @@ export function NoteStudio() {
       id,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
+      sessionId: existing?.sessionId || currentSessionId,
       encounterType,
       filename: existing?.filename || makeStoredFilename(fallbackMimeType),
       mimeType: existing?.mimeType || fallbackMimeType,
@@ -583,11 +682,37 @@ export function NoteStudio() {
     await refreshRecordings();
   }
 
+  async function handlePauseResumeRecording() {
+    if (!mediaRecorderRef.current) return;
+
+    if (isRecordingPaused) {
+      mediaRecorderRef.current.resume();
+      setIsRecordingPaused(false);
+      setStatus("Recording resumed");
+      if (activeRecordingIdRef.current) {
+        await persistRecordingSnapshot(activeRecordingIdRef.current, "recording", [...recordedChunksRef.current], {
+          mimeType: recordingMimeTypeRef.current,
+        });
+      }
+      return;
+    }
+
+    mediaRecorderRef.current.pause();
+    setIsRecordingPaused(true);
+    setStatus("Recording paused");
+    if (activeRecordingIdRef.current) {
+      await persistRecordingSnapshot(activeRecordingIdRef.current, "paused", [...recordedChunksRef.current], {
+        mimeType: recordingMimeTypeRef.current,
+      });
+    }
+  }
+
   async function handleRecordToggle() {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
-      setStatus("Processing recording...");
+      setIsRecordingPaused(false);
+      setStatus("Processing conversation recording...");
       return;
     }
 
@@ -600,25 +725,31 @@ export function NoteStudio() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
       const recorder = mimeType ? new window.MediaRecorder(stream, { mimeType }) : new window.MediaRecorder(stream);
-      const recordingId = crypto.randomUUID();
-      const filename = makeStoredFilename(recorder.mimeType || mimeType || "audio/webm");
+      const existingConversation = currentConversationRecording;
+      const recordingId = existingConversation?.id || crypto.randomUUID();
+      const filename = existingConversation?.filename || makeStoredFilename(recorder.mimeType || mimeType || "audio/webm");
 
       mediaStreamRef.current = stream;
       mediaRecorderRef.current = recorder;
-      recordedChunksRef.current = [];
-      recordingMimeTypeRef.current = recorder.mimeType || mimeType || "audio/webm";
+      recordedChunksRef.current = existingConversation?.chunks ? [...existingConversation.chunks] : [];
+      recordingMimeTypeRef.current = recorder.mimeType || mimeType || existingConversation?.mimeType || "audio/webm";
       activeRecordingIdRef.current = recordingId;
+      setCurrentRecordingId(recordingId);
 
       await saveStoredRecording({
         id: recordingId,
-        createdAt: new Date().toISOString(),
+        createdAt: existingConversation?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        sessionId: currentSessionId,
         encounterType,
         filename,
         mimeType: recordingMimeTypeRef.current,
         status: "recording",
         interrupted: false,
-        chunks: [],
+        chunks: recordedChunksRef.current,
+        transcript: existingConversation?.transcript,
+        speakerLines: existingConversation?.speakerLines,
+        error: undefined,
       });
       await refreshRecordings();
 
@@ -626,9 +757,10 @@ export function NoteStudio() {
         if (event.data.size > 0) {
           recordedChunksRef.current.push(event.data);
           if (activeRecordingIdRef.current) {
-            await persistRecordingSnapshot(activeRecordingIdRef.current, "recording", [...recordedChunksRef.current], {
+            await persistRecordingSnapshot(activeRecordingIdRef.current, recorder.state === "paused" ? "paused" : "recording", [...recordedChunksRef.current], {
               filename,
               mimeType: recordingMimeTypeRef.current,
+              sessionId: currentSessionId,
             });
           }
         }
@@ -646,17 +778,19 @@ export function NoteStudio() {
           await persistRecordingSnapshot(completedRecordingId, "saved", [...recordedChunksRef.current], {
             filename,
             mimeType: recordingMimeTypeRef.current,
+            sessionId: currentSessionId,
           });
           await transcribeStoredRecording(completedRecordingId);
         }
-
-        recordedChunksRef.current = [];
       }, { once: true });
 
       recorder.start(2000);
-      setRecordingSeconds(0);
       setIsRecording(true);
-      setStatus("Recording… tap again to stop");
+      setIsRecordingPaused(false);
+      if (!existingConversation?.chunks?.length) {
+        setRecordingSeconds(0);
+      }
+      setStatus(existingConversation?.chunks?.length ? "Recording resumed for this patient conversation" : "Recording… tap stop to finish, or pause to hold");
     } catch (error) {
       console.error(error);
       setStatus("Microphone access failed");
@@ -664,6 +798,7 @@ export function NoteStudio() {
       mediaStreamRef.current = null;
       mediaRecorderRef.current = null;
       setIsRecording(false);
+      setIsRecordingPaused(false);
     }
   }
 
@@ -832,14 +967,20 @@ export function NoteStudio() {
       <main className="clinicalWorkspace">
         <IntakeRail
           currentSessionId={currentSessionId}
-          sessions={workspaceSessions.map((session) => ({ id: session.id, name: session.name, updatedAt: session.updatedAt }))}
+          currentSessionName={workspaceSessions.find((session) => session.id === currentSessionId)?.name || ""}
+          sessions={[...workspaceSessions]
+            .filter((session) => !session.archived)
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+            .map((session) => ({ id: session.id, name: session.name, updatedAt: session.updatedAt }))}
           encounterType={encounterType}
           transcript={transcript}
           transcriptStats={transcriptStats}
           transcriptionLanguage={transcriptionLanguage}
           transcribing={transcribing}
           isRecording={isRecording}
+          isRecordingPaused={isRecordingPaused}
           recordingSeconds={recordingSeconds}
+          currentPlaybackUrl={currentPlaybackUrl}
           selectedFile={selectedFile}
           loading={loading}
           transcriptNeedsConfirmation={transcriptNeedsConfirmation}
@@ -847,16 +988,20 @@ export function NoteStudio() {
           showEvidence={showEvidence}
           status={status}
           structuredDocumentType={structured.documentType}
-          recordings={recordings}
+          recordings={currentSessionRecordings}
           speakerLines={speakerLines}
           onEncounterChange={(next) => {
             setEncounterType(next);
+            autoRenameCurrentSessionIfGeneric(transcript, next);
             clearDraftState(next);
             setStatus("Idle");
             setReviewStatus(null);
           }}
           onLanguageChange={setTranscriptionLanguage}
           onRecordToggle={handleRecordToggle}
+          onPauseResumeRecording={() => {
+            void handlePauseResumeRecording();
+          }}
           onAudioChange={(file) => {
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(false);
@@ -865,6 +1010,7 @@ export function NoteStudio() {
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
+                sessionId: currentSessionId,
                 encounterType,
                 filename: file.name,
                 mimeType: file.type || "audio/webm",
@@ -880,6 +1026,7 @@ export function NoteStudio() {
           }}
           onTranscriptChange={(next) => {
             setTranscript(next);
+            autoRenameCurrentSessionIfGeneric(next, encounterType);
             setSpeakerLines([]);
             if (selectedFile) setTranscriptConfirmed(false);
           }}
@@ -902,6 +1049,7 @@ export function NoteStudio() {
             if (!found?.transcript) return;
             setCurrentRecordingId(id);
             setTranscript(found.transcript);
+            autoRenameCurrentSessionIfGeneric(found.transcript, encounterType);
             setSpeakerLines((found.speakerLines || []).map((line) => ({ ...line, reviewed: line.reviewed ?? false })));
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(true);
@@ -919,6 +1067,9 @@ export function NoteStudio() {
           onSpeakerLineReviewToggle={handleSpeakerLineReviewToggle}
           onCreateSession={createWorkspaceSession}
           onSelectSession={selectWorkspaceSession}
+          onRenameSession={renameWorkspaceSession}
+          onArchiveSession={archiveCurrentSession}
+          onDeleteSession={deleteCurrentSession}
         />
 
         <DraftWorkspace

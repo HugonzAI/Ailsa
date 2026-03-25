@@ -6,6 +6,7 @@ export type WorkspaceSession = {
   id: string;
   name: string;
   updatedAt: string;
+  archived?: boolean;
   encounterType: EncounterType;
   transcriptionLanguage: string;
   transcript: string;
@@ -28,11 +29,47 @@ export type WorkspaceSessionStore = {
 
 export const WORKSPACE_SESSIONS_KEY = "ailsa-note-sessions-v1";
 
+function formatSessionTime(value: Date) {
+  return new Intl.DateTimeFormat("en-NZ", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+export function buildSmartSessionName(encounterType: EncounterType, transcript?: string) {
+  const now = new Date();
+  const labelMap: Record<EncounterType, string> = {
+    "Cardiac ward round": "Ward round",
+    "Cardiac admission": "Admission",
+    "Cardiac discharge": "Discharge",
+    "Cardiac handover": "Handover",
+    "Chest pain / ACS review": "Chest pain",
+    "Decompensated heart failure": "HF review",
+    "AF / arrhythmia review": "Arrhythmia",
+    "Syncope / presyncope review": "Syncope",
+    "Cardiology consultant letter": "Consult letter",
+  };
+
+  const prefix = labelMap[encounterType] || "Session";
+  const hint = transcript
+    ?.trim()
+    ?.split(/\n|\./)[0]
+    ?.replace(/^\[[^\]]+\]\s*/g, "")
+    ?.replace(/^(Doctor|Patient|Nurse|Family|Unknown|Speaker \d+):\s*/i, "")
+    ?.trim()
+    ?.slice(0, 36);
+
+  return hint ? `${prefix} · ${hint}` : `${prefix} · ${formatSessionTime(now)}`;
+}
+
 export function createDefaultSession(id: string, overrides: Partial<WorkspaceSession> = {}): WorkspaceSession {
   return {
     id,
     name: "Session 1",
     updatedAt: new Date().toISOString(),
+    archived: false,
     encounterType: "Cardiac ward round",
     transcriptionLanguage: "en",
     transcript: demoTranscript,

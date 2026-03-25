@@ -5,6 +5,7 @@ import type { StoredRecording } from "@/components/note-studio/recording-store";
 
 type IntakeRailProps = {
   currentSessionId: string;
+  currentSessionName: string;
   sessions: { id: string; name: string; updatedAt: string }[];
   encounterType: EncounterType;
   transcript: string;
@@ -12,7 +13,9 @@ type IntakeRailProps = {
   transcriptionLanguage: string;
   transcribing: boolean;
   isRecording: boolean;
+  isRecordingPaused: boolean;
   recordingSeconds: number;
+  currentPlaybackUrl: string | null;
   selectedFile: File | null;
   loading: boolean;
   transcriptNeedsConfirmation: boolean;
@@ -25,6 +28,7 @@ type IntakeRailProps = {
   onEncounterChange: (next: EncounterType) => void;
   onLanguageChange: (next: string) => void;
   onRecordToggle: () => void;
+  onPauseResumeRecording: () => void;
   onAudioChange: (file: File | null) => void;
   onTranscriptChange: (next: string) => void;
   onConfirmTranscript: () => void;
@@ -40,6 +44,9 @@ type IntakeRailProps = {
   onSpeakerLineReviewToggle: (index: number) => void;
   onCreateSession: () => void;
   onSelectSession: (sessionId: string) => void;
+  onRenameSession: (name: string) => void;
+  onArchiveSession: () => void;
+  onDeleteSession: () => void;
 };
 
 function formatRecordingTime(value: string) {
@@ -59,6 +66,7 @@ function formatRecordingSeconds(totalSeconds: number) {
 
 function getRecordingStatusLabel(recording: StoredRecording) {
   if (recording.interrupted && recording.status === "saved") return "interrupted · recoverable";
+  if (recording.status === "paused") return "paused";
   if (recording.status === "saved") return "saved";
   if (recording.status === "transcribed") return "transcribed";
   if (recording.status === "transcribing") return "transcribing";
@@ -78,6 +86,10 @@ function getRecordingStorageSummary(recording: StoredRecording) {
 
   if (totalBytes === 0) return chunkLabel;
   return `${chunkLabel} · ${formatBytes(totalBytes)}`;
+}
+
+function getConversationLabel(recording: StoredRecording) {
+  return `Conversation audio · ${formatRecordingTime(recording.createdAt)}`;
 }
 
 type SpeakerFilter = "All" | "Needs review" | "Unchecked" | TranscriptSpeaker;
@@ -102,6 +114,7 @@ function needsReviewSpeaker(speaker: TranscriptSpeaker) {
 
 export function IntakeRail({
   currentSessionId,
+  currentSessionName,
   sessions,
   encounterType,
   transcript,
@@ -109,7 +122,9 @@ export function IntakeRail({
   transcriptionLanguage,
   transcribing,
   isRecording,
+  isRecordingPaused,
   recordingSeconds,
+  currentPlaybackUrl,
   selectedFile,
   loading,
   transcriptNeedsConfirmation,
@@ -122,6 +137,7 @@ export function IntakeRail({
   onEncounterChange,
   onLanguageChange,
   onRecordToggle,
+  onPauseResumeRecording,
   onAudioChange,
   onTranscriptChange,
   onConfirmTranscript,
@@ -137,9 +153,14 @@ export function IntakeRail({
   onSpeakerLineReviewToggle,
   onCreateSession,
   onSelectSession,
+  onRenameSession,
+  onArchiveSession,
+  onDeleteSession,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
+  const pauseLabel = isRecordingPaused ? "Resume" : "Pause";
   const [speakerFilter, setSpeakerFilter] = useState<SpeakerFilter>("Needs review");
+  const [sessionNameDraft, setSessionNameDraft] = useState(currentSessionName);
 
   const speakerFilterCounts = useMemo(() => {
     const counts = speakerLines.reduce<Record<string, number>>((accumulator, line) => {
@@ -175,6 +196,10 @@ export function IntakeRail({
     }
   }, [availableSpeakerFilters, speakerFilter]);
 
+  useEffect(() => {
+    setSessionNameDraft(currentSessionName);
+  }, [currentSessionName, currentSessionId]);
+
   return (
     <section className="intakeRail">
       <div className="intakeBlock">
@@ -194,6 +219,41 @@ export function IntakeRail({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="fieldGroup">
+            <label className="microLabel" htmlFor="sessionName">Session Name</label>
+            <div className="sessionRenameRow">
+              <input
+                id="sessionName"
+                className="stitchInput"
+                value={sessionNameDraft}
+                onChange={(e) => setSessionNameDraft(e.target.value)}
+                onBlur={() => onRenameSession(sessionNameDraft)}
+              />
+              <button className="sessionRenameButton" type="button" onClick={() => onRenameSession(sessionNameDraft)}>
+                Save
+              </button>
+            </div>
+            <div className="sessionAdminRow">
+              <button className="sessionAdminButton" type="button" onClick={onArchiveSession}>Archive</button>
+              <button className="sessionAdminButton danger" type="button" onClick={onDeleteSession}>Delete</button>
+            </div>
+          </div>
+          <div className="fieldGroup">
+            <label className="microLabel">Recent Sessions</label>
+            <div className="recentSessionsList">
+              {sessions.slice(0, 4).map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  className={`recentSessionButton${session.id === currentSessionId ? " active" : ""}`}
+                  onClick={() => onSelectSession(session.id)}
+                >
+                  <strong>{session.name}</strong>
+                  <span>{formatRecordingTime(session.updatedAt)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <h3 className="microHeading">Context</h3>
@@ -228,11 +288,33 @@ export function IntakeRail({
           </select>
         </div>
 
-        <button className={`recordingButton${isRecording ? " isRecording" : ""}`} type="button" onClick={onRecordToggle} disabled={transcribing}>
+        <div className="fieldGroup">
+          <label className="microLabel">Current Conversation</label>
+          <div className="encounterSummaryCard">
+            <strong>{recordings.length ? getConversationLabel(recordings[0]) : "No conversation audio yet"}</strong>
+            <span>
+              {recordings.length
+                ? `${getRecordingStatusLabel(recordings[0])} · ${getRecordingStorageSummary(recordings[0])}`
+                : "Start recording to capture this conversation. Pause, resume, and interruptions stay inside the same encounter."}
+            </span>
+          </div>
+        </div>
+        <button className={`recordingButton${isRecording ? " isRecording" : ""}${isRecordingPaused ? " isPaused" : ""}`} type="button" onClick={onRecordToggle} disabled={transcribing}>
           <div className="recordingIcon">●</div>
-          <span>{recordingLabel}</span>
-          <span className="recordingMeta">{isRecording ? formatRecordingSeconds(recordingSeconds) : transcribing ? "processing audio" : "tap to begin"}</span>
+          <span>{recordings.length ? recordingLabel.replace("Start Recording", "Continue Conversation") : recordingLabel}</span>
+          <span className="recordingMeta">{isRecording ? formatRecordingSeconds(recordingSeconds) : transcribing ? "processing audio" : recordings.length ? "continue this consultation conversation" : "tap to begin"}</span>
         </button>
+        <div className="recordingControlRow">
+          <button className="subtleButton" type="button" onClick={onPauseResumeRecording} disabled={!isRecording}>
+            {pauseLabel}
+          </button>
+        </div>
+        {currentPlaybackUrl ? (
+          <div className="fieldGroup">
+            <label className="microLabel">Conversation Playback</label>
+            <audio className="conversationPlayback" controls src={currentPlaybackUrl} />
+          </div>
+        ) : null}
 
         <div className="fieldGroup">
           <label className="microLabel" htmlFor="audio">Audio file</label>
@@ -247,16 +329,16 @@ export function IntakeRail({
 
         {recordings.length ? (
           <div className="fieldGroup">
-            <label className="microLabel">Saved Recordings</label>
+            <label className="microLabel">Conversation Audio</label>
             <div className="recordingsList">
               {[...recordings]
-                .sort((left, right) => Number(Boolean(right.interrupted)) - Number(Boolean(left.interrupted)))
-                .slice(0, 4)
-                .map((recording) => (
+                .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+                .slice(0, 6)
+                .map((recording, index) => (
                 <div key={recording.id} className="recordingItem">
                   <div className="recordingItemMeta">
                     <div className="recordingItemTitleRow">
-                      <strong>{recording.filename}</strong>
+                      <strong>{index === 0 ? getConversationLabel(recording) : `Audio snapshot ${index + 1}`}</strong>
                       {recording.interrupted ? <span className="recordingRecoveryBadge">Recovered</span> : null}
                     </div>
                     <span>{getRecordingStatusLabel(recording)} · {formatRecordingTime(recording.createdAt)}</span>
