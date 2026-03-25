@@ -182,47 +182,9 @@ export function IntakeRail({
   return (
     <section className="intakeRail">
       <div className="intakeBlock">
-        <h3 className="microHeading">Context</h3>
-
-        <div className="fieldGroup">
-          <label className="microLabel" htmlFor="encounterType">Type</label>
-          <select
-            id="encounterType"
-            className="stitchSelect"
-            value={encounterType}
-            onChange={(e) => onEncounterChange(e.target.value as EncounterType)}
-          >
-            {encounterOptions.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="fieldGroup compactFieldGroup">
-          <label className="microLabel">Spoken Language</label>
-          <div className="languageChipRow">
-            {[
-              ["en", "EN"],
-              ["zh", "中文"],
-              ["mi", "Māori"],
-              ["tl", "Filipino"],
-              ["ko", "한국어"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`languageChip${transcriptionLanguage === value ? " active" : ""}`}
-                onClick={() => onLanguageChange(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="fieldGroup">
           <label className="microLabel">Current Conversation</label>
-          <div className="encounterSummaryCard">
+          <div className="encounterSummaryCard conversationPrimaryCard">
             <strong>{recordings.length ? getConversationLabel(recordings[0]) : "No conversation audio yet"}</strong>
             <span>
               {recordings.length
@@ -236,204 +198,266 @@ export function IntakeRail({
           <span>{recordings.length ? recordingLabel.replace("Start Recording", "Continue Conversation") : recordingLabel}</span>
           <span className="recordingMeta">{isRecording ? formatRecordingSeconds(recordingSeconds) : transcribing ? "processing audio" : recordings.length ? "continue this consultation conversation" : "tap to begin"}</span>
         </button>
-        <div className="recordingControlRow">
+        <div className="recordingControlRow split compactControlRow">
           <button className="subtleButton" type="button" onClick={onPauseResumeRecording} disabled={!isRecording}>
             {pauseLabel}
           </button>
-        </div>
-        {currentPlaybackUrl ? (
-          <div className="fieldGroup">
-            <label className="microLabel">Conversation Playback</label>
-            <audio className="conversationPlayback" controls src={currentPlaybackUrl} />
-          </div>
-        ) : null}
-
-        <div className="fieldGroup">
-          <label className="microLabel" htmlFor="audio">Audio file</label>
-          <input
-            id="audio"
-            className="stitchInput"
-            type="file"
-            accept="audio/*"
-            onChange={(e) => onAudioChange(e.target.files?.[0] ?? null)}
-          />
+          <button type="button" className={`quickToggleButton${showEvidence ? " active" : ""}`} onClick={onToggleEvidence}>
+            Evidence {showEvidence ? "On" : "Off"}
+          </button>
         </div>
 
-        {recordings.length ? (
-          <div className="fieldGroup">
-            <label className="microLabel">Conversation Audio</label>
-            <div className="recordingsList">
-              {[...recordings]
-                .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-                .slice(0, 6)
-                .map((recording, index) => (
-                <div key={recording.id} className="recordingItem">
-                  <div className="recordingItemMeta">
-                    <div className="recordingItemTitleRow">
-                      <strong>{index === 0 ? getConversationLabel(recording) : `Audio snapshot ${index + 1}`}</strong>
-                      {recording.interrupted ? <span className="recordingRecoveryBadge">Recovered</span> : null}
-                    </div>
-                    <span>{getRecordingStatusLabel(recording)} · {formatRecordingTime(recording.createdAt)}</span>
-                    <span className="recordingStorageMeta">{getRecordingStorageSummary(recording)}</span>
-                    {recording.error ? <em className="recordingItemHint">{recording.error}</em> : null}
-                  </div>
-                  <div className="recordingItemActions">
-                    {recording.status === "recording" && recording.chunks.length > 0 ? (
-                      <button type="button" className="recordingMiniButton recover" onClick={() => onRetryRecording(recording.id)}>
-                        Recover now
-                      </button>
-                    ) : null}
-                    {recording.status === "failed" || recording.status === "saved" ? (
-                      <button type="button" className={`recordingMiniButton${recording.interrupted ? " recover" : ""}`} onClick={() => onRetryRecording(recording.id)}>
-                        {recording.interrupted ? "Continue transcription" : recording.status === "saved" ? "Transcribe" : "Retry"}
-                      </button>
-                    ) : null}
-                    {recording.transcript ? (
-                      <button type="button" className="recordingMiniButton" onClick={() => onLoadRecordingTranscript(recording.id)}>
-                        Load
-                      </button>
-                    ) : null}
-                    <button type="button" className="recordingMiniButton danger" onClick={() => onDeleteRecording(recording.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+        <div className="quickContextCard">
+          <div className="quickControlGrid">
+            <div className="quickControlItem">
+              <label className="microLabel" htmlFor="encounterType">Type</label>
+              <select
+                id="encounterType"
+                className="stitchSelect compactSelect"
+                value={encounterType}
+                onChange={(e) => onEncounterChange(e.target.value as EncounterType)}
+              >
+                {encounterOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+            <div className="quickControlItem compactFieldGroup">
+              <label className="microLabel">Language</label>
+              <div className="languageChipRow compactLanguageChipRow">
+                {[
+                  ["en", "EN"],
+                  ["zh", "中文"],
+                  ["mi", "Māori"],
+                  ["tl", "Filipino"],
+                  ["ko", "한국어"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`languageChip${transcriptionLanguage === value ? " active" : ""}`}
+                    onClick={() => onLanguageChange(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        ) : null}
+          {currentPlaybackUrl ? <audio className="conversationPlayback" controls src={currentPlaybackUrl} /> : null}
+        </div>
 
-        <div className="fieldGroup">
-          <label className="microLabel" htmlFor="transcript">Manual Transcript</label>
+        <details className="secondaryInputSection">
+          <summary className="secondaryInputSummary">More audio options</summary>
+
+          <div className="secondaryInputBody">
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="audio">Audio file</label>
+              <input
+                id="audio"
+                className="stitchInput"
+                type="file"
+                accept="audio/*"
+                onChange={(e) => onAudioChange(e.target.files?.[0] ?? null)}
+              />
+            </div>
+
+            {recordings.length ? (
+              <div className="fieldGroup">
+                <label className="microLabel">Conversation Audio</label>
+                <div className="recordingsList">
+                  {[...recordings]
+                    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+                    .slice(0, 6)
+                    .map((recording, index) => (
+                    <div key={recording.id} className="recordingItem">
+                      <div className="recordingItemMeta">
+                        <div className="recordingItemTitleRow">
+                          <strong>{index === 0 ? getConversationLabel(recording) : `Audio snapshot ${index + 1}`}</strong>
+                          {recording.interrupted ? <span className="recordingRecoveryBadge">Recovered</span> : null}
+                        </div>
+                        <span>{getRecordingStatusLabel(recording)} · {formatRecordingTime(recording.createdAt)}</span>
+                        <span className="recordingStorageMeta">{getRecordingStorageSummary(recording)}</span>
+                        {recording.error ? <em className="recordingItemHint">{recording.error}</em> : null}
+                      </div>
+                      <div className="recordingItemActions">
+                        {recording.status === "recording" && recording.chunks.length > 0 ? (
+                          <button type="button" className="recordingMiniButton recover" onClick={() => onRetryRecording(recording.id)}>
+                            Recover now
+                          </button>
+                        ) : null}
+                        {recording.status === "failed" || recording.status === "saved" ? (
+                          <button type="button" className={`recordingMiniButton${recording.interrupted ? " recover" : ""}`} onClick={() => onRetryRecording(recording.id)}>
+                            {recording.interrupted ? "Continue transcription" : recording.status === "saved" ? "Transcribe" : "Retry"}
+                          </button>
+                        ) : null}
+                        {recording.transcript ? (
+                          <button type="button" className="recordingMiniButton" onClick={() => onLoadRecordingTranscript(recording.id)}>
+                            Load
+                          </button>
+                        ) : null}
+                        <button type="button" className="recordingMiniButton danger" onClick={() => onDeleteRecording(recording.id)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </details>
+
+        <div className="transcriptOverviewCard">
+          <div className="transcriptOverviewHeader">
+            <div>
+              <label className="microLabel">Transcript review</label>
+              <strong>{transcriptNeedsConfirmation ? "Review needed before drafting" : "Transcript ready for drafting"}</strong>
+            </div>
+            <span className={transcriptNeedsConfirmation ? "transcriptReviewFlag pending" : "transcriptReviewFlag confirmed"}>
+              {transcriptNeedsConfirmation ? "Pending" : "Reviewed"}
+            </span>
+          </div>
+          <div className="intakeStats compactStats">
+            <span>{transcriptStats.words} words</span>
+            <span>{transcriptStats.chars} chars</span>
+            {speakerLines.length ? <span>{speakerLines.length} speaker lines</span> : null}
+          </div>
           {showTranscriptBanner ? (
-            <div className="transcriptConfirmBanner">
+            <div className="transcriptConfirmBanner compactTranscriptBanner">
               <div>
-                <strong>⚠ AI-generated transcript — please review before generating</strong>
+                <strong>AI-generated transcript — please review before generating</strong>
               </div>
               <button className="transcriptConfirmButton" type="button" onClick={onConfirmTranscript}>
-                Confirm transcript
+                Confirm
               </button>
             </div>
           ) : null}
-          <textarea
-            id="transcript"
-            className="stitchTextarea large"
-            value={transcript}
-            onChange={(e) => onTranscriptChange(e.target.value)}
-            rows={8}
-          />
         </div>
 
-        <div className="intakeStats">
-          <span>{transcriptStats.words} words</span>
-          <span>{transcriptStats.chars} chars</span>
-          {speakerLines.length ? <span>{speakerLines.length} speaker lines</span> : null}
-          {selectedFile ? (
-            <span className={transcriptNeedsConfirmation ? "transcriptReviewFlag pending" : "transcriptReviewFlag confirmed"}>
-              {transcriptNeedsConfirmation ? "Transcript review pending" : "Transcript reviewed"}
-            </span>
-          ) : null}
-        </div>
-
-        {speakerLines.length ? (
-          <div className="fieldGroup">
-            <div className="speakerReviewHeader">
-              <label className="microLabel">Speaker-aware Transcript</label>
-              <div className="speakerReviewActions">
-                <button className="speakerReviewButton confirm" type="button" onClick={onConfirmTranscript}>
-                  Mark transcript reviewed
-                </button>
-                <button className="speakerReviewButton reset" type="button" onClick={onResetTranscriptReview}>
-                  Reset review
-                </button>
-              </div>
-            </div>
-            <div className="speakerFilterChips">
-              {availableSpeakerFilters.map((speaker) => {
-                const count = speaker === "All" ? speakerLines.length : speakerFilterCounts[speaker] || 0;
-                return (
-                  <button
-                    key={speaker}
-                    type="button"
-                    className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}${speaker === "Needs review" ? " needsReview" : ""}`}
-                    onClick={() => setSpeakerFilter(speaker)}
-                  >
-                    <span>{speaker}</span>
-                    <strong>{count}</strong>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="speakerReviewSummary">
-              <span>{speakerFilterCounts.Unchecked || 0} unchecked</span>
-              <span>{speakerLines.filter((line) => line.reviewed).length} reviewed</span>
-              {speakerFilterCounts["Needs review"] ? <span>{speakerFilterCounts["Needs review"]} uncertain</span> : null}
-            </div>
-            {speakerFilterCounts["Needs review"] ? (
-              <div className="speakerReviewHint">
-                Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first — they are most likely to need clinician correction.
-              </div>
-            ) : null}
-            <div className="speakerLinesList">
-              {filteredSpeakerLines.length ? (
-                filteredSpeakerLines.map(({ line, index }) => (
-                  <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}${line.reviewed ? " reviewed" : ""}`}>
-                    <div className="speakerLineHeader">
-                      <select
-                        className="speakerLabelSelect"
-                        value={line.speaker}
-                        onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
-                      >
-                        <option value="Doctor">Doctor</option>
-                        <option value="Patient">Patient</option>
-                        <option value="Nurse">Nurse</option>
-                        <option value="Family">Family</option>
-                        <option value="Unknown">Unknown</option>
-                        <option value="Speaker 1">Speaker 1</option>
-                        <option value="Speaker 2">Speaker 2</option>
-                        <option value="Speaker 3">Speaker 3</option>
-                      </select>
-                      <button
-                        type="button"
-                        className={`speakerLineReviewToggle${line.reviewed ? " reviewed" : ""}`}
-                        onClick={() => onSpeakerLineReviewToggle(index)}
-                      >
-                        {line.reviewed ? "Reviewed" : "Mark checked"}
-                      </button>
-                    </div>
-                    <textarea
-                      className="speakerLineTextEditor"
-                      value={line.text}
-                      onChange={(e) => onSpeakerLineTextChange(index, e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                ))
-              ) : (
-                <div className="speakerEmptyState">No transcript lines match this filter.</div>
-              )}
+        <details className="secondaryInputSection" open={!transcript || transcriptNeedsConfirmation}>
+          <summary className="secondaryInputSummary">Transcript editor</summary>
+          <div className="secondaryInputBody transcriptEditorBody">
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="transcript">Manual Transcript</label>
+              <textarea
+                id="transcript"
+                className="stitchTextarea large compactTranscriptEditor"
+                value={transcript}
+                onChange={(e) => onTranscriptChange(e.target.value)}
+                rows={8}
+              />
             </div>
           </div>
+        </details>
+
+        {speakerLines.length ? (
+          <details className="secondaryInputSection speakerReviewSection" open={transcriptNeedsConfirmation}>
+            <summary className="secondaryInputSummary">Speaker-aware review</summary>
+            <div className="secondaryInputBody">
+              <div className="speakerReviewHeader">
+                <label className="microLabel">Speaker-aware Transcript</label>
+                <div className="speakerReviewActions">
+                  <button className="speakerReviewButton confirm" type="button" onClick={onConfirmTranscript}>
+                    Mark reviewed
+                  </button>
+                  <button className="speakerReviewButton reset" type="button" onClick={onResetTranscriptReview}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div className="speakerReviewSummary">
+                <span>{speakerFilterCounts.Unchecked || 0} unchecked</span>
+                <span>{speakerLines.filter((line) => line.reviewed).length} reviewed</span>
+                {speakerFilterCounts["Needs review"] ? <span>{speakerFilterCounts["Needs review"]} uncertain</span> : null}
+              </div>
+              <div className="speakerFilterChips compactSpeakerFilterChips">
+                {availableSpeakerFilters.map((speaker) => {
+                  const count = speaker === "All" ? speakerLines.length : speakerFilterCounts[speaker] || 0;
+                  return (
+                    <button
+                      key={speaker}
+                      type="button"
+                      className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}${speaker === "Needs review" ? " needsReview" : ""}`}
+                      onClick={() => setSpeakerFilter(speaker)}
+                    >
+                      <span>{speaker}</span>
+                      <strong>{count}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+              {speakerFilterCounts["Needs review"] ? (
+                <div className="speakerReviewHint">
+                  Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first — they are most likely to need clinician correction.
+                </div>
+              ) : null}
+              <div className="speakerLinesList compactSpeakerLinesList">
+                {filteredSpeakerLines.length ? (
+                  filteredSpeakerLines.map(({ line, index }) => (
+                    <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}${line.reviewed ? " reviewed" : ""}`}>
+                      <div className="speakerLineHeader">
+                        <select
+                          className="speakerLabelSelect"
+                          value={line.speaker}
+                          onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
+                        >
+                          <option value="Doctor">Doctor</option>
+                          <option value="Patient">Patient</option>
+                          <option value="Nurse">Nurse</option>
+                          <option value="Family">Family</option>
+                          <option value="Unknown">Unknown</option>
+                          <option value="Speaker 1">Speaker 1</option>
+                          <option value="Speaker 2">Speaker 2</option>
+                          <option value="Speaker 3">Speaker 3</option>
+                        </select>
+                        <button
+                          type="button"
+                          className={`speakerLineReviewToggle${line.reviewed ? " reviewed" : ""}`}
+                          onClick={() => onSpeakerLineReviewToggle(index)}
+                        >
+                          {line.reviewed ? "Reviewed" : "Mark checked"}
+                        </button>
+                      </div>
+                      <textarea
+                        className="speakerLineTextEditor"
+                        value={line.text}
+                        onChange={(e) => onSpeakerLineTextChange(index, e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="speakerEmptyState">No transcript lines match this filter.</div>
+                )}
+              </div>
+            </div>
+          </details>
         ) : null}
 
-        <button className="primaryDarkButton" type="button" onClick={onGenerate} disabled={loading || transcriptNeedsConfirmation}>
-          {loading
-            ? "Generating…"
-            : transcriptNeedsConfirmation
-              ? "Confirm transcript first"
-              : structuredDocumentType === "cardiology_consultant_letter"
-                ? "Generate consultant letter"
-                : structuredDocumentType === "cardiac_discharge_summary"
-                  ? "Generate discharge summary"
-                  : "Generate clinical draft"}
-        </button>
-        <button className="subtleButton" type="button" onClick={onResetDemo}>Reset demo</button>
-      </div>
-
-      <div className="intakeEvidenceToggle">
-        <button type="button" className="intakeEvidenceButton" onClick={onToggleEvidence}>
-          {showEvidence ? "Evidence Support ✓" : "Evidence Support"}
-        </button>
+        <div className="draftActionCard">
+          <div className="draftActionHeader">
+            <div>
+              <label className="microLabel">Draft action</label>
+              <strong>{transcriptNeedsConfirmation ? "Transcript review required" : "Ready to generate draft"}</strong>
+            </div>
+            <span className={`draftActionStatus${transcriptNeedsConfirmation ? " pending" : " ready"}`}>
+              {transcriptNeedsConfirmation ? "Review first" : "Ready"}
+            </span>
+          </div>
+          <button className="primaryDarkButton stickyPrimaryButton" type="button" onClick={onGenerate} disabled={loading || transcriptNeedsConfirmation}>
+            {loading
+              ? "Generating…"
+              : transcriptNeedsConfirmation
+                ? "Confirm transcript first"
+                : structuredDocumentType === "cardiology_consultant_letter"
+                  ? "Generate consultant letter"
+                  : structuredDocumentType === "cardiac_discharge_summary"
+                    ? "Generate discharge summary"
+                    : "Generate clinical draft"}
+          </button>
+          <button className="subtleButton compactSecondaryButton" type="button" onClick={onResetDemo}>Reset demo</button>
+        </div>
       </div>
 
       <nav className="intakeFooterNav">

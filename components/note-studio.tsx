@@ -267,9 +267,14 @@ export function NoteStudio() {
     status,
   ]);
 
+  const currentSessionName = useMemo(
+    () => workspaceSessions.find((session) => session.id === currentSessionId)?.name || "Current consultation",
+    [workspaceSessions, currentSessionId],
+  );
+
   useEffect(() => {
-    setSessionNameDraft(workspaceSessions.find((session) => session.id === currentSessionId)?.name || "");
-  }, [workspaceSessions, currentSessionId]);
+    setSessionNameDraft(currentSessionName);
+  }, [currentSessionName]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -955,7 +960,10 @@ export function NoteStudio() {
     <>
       <header className="topBar">
         <div className="topBarLeft">
-          <span className="brand">AILSA</span>
+          <div className="brandLockup">
+            <span className="brand">AILSA</span>
+            <span className="brandSubtitle">{currentSessionName}</span>
+          </div>
           <nav className="topNav">
             <a href="#">Encounter</a>
             <a href="#">Clinical Draft</a>
@@ -965,7 +973,6 @@ export function NoteStudio() {
         </div>
         <div className="topBarRight">
           <button className="iconButton" type="button" aria-label="Session management" onClick={() => setSessionManagerOpen((current) => !current)}>⋯</button>
-          <div className="avatarDot" />
         </div>
       </header>
 
