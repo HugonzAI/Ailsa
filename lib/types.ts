@@ -12,8 +12,22 @@ export type NoteGenerationRequest = {
   encounterType?: EncounterType;
 };
 
+export type StructuredCardiacNote = {
+  patientContext: string;
+  overnightEvents: string;
+  symptoms: string;
+  observations: string;
+  examination: string;
+  keyInvestigations: string;
+  assessment: string;
+  activeProblems: string[];
+  planToday: string[];
+  dischargeConsiderations: string;
+};
+
 export type NoteGenerationResponse = {
   soapNote: string;
+  structured: StructuredCardiacNote;
   mode: "mock" | "provider";
 };
 

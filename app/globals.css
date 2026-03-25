@@ -183,6 +183,10 @@ input[type="file"], .input, select {
   line-height: 1.65;
 }
 
+.output.compact {
+  min-height: 0;
+}
+
 .steps {
   margin-top: 18px;
   display: grid;
@@ -199,6 +203,17 @@ input[type="file"], .input, select {
 
 .step strong { display: block; margin-bottom: 6px; }
 .step span { color: var(--muted); line-height: 1.55; }
+
+.structuredGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.structuredSection {
+  display: grid;
+  gap: 8px;
+}
 
 @media (max-width: 860px) {
   .grid, .steps { grid-template-columns: 1fr; }

@@ -1,47 +1,36 @@
 import { NextResponse } from "next/server";
-import { buildSoapPrompt, getAnthropicApiKey, getAnthropicModel } from "@/lib/anthropic";
+import {
+  buildStructuredCardiacPrompt,
+  coerceStructuredCardiacNote,
+  emptyStructuredNote,
+  getAnthropicApiKey,
+  getAnthropicModel,
+  renderStructuredNote,
+} from "@/lib/anthropic";
 import type { NoteGenerationRequest, NoteGenerationResponse } from "@/lib/types";
 
-function buildMockSoapNote(transcript: string): string {
-  const preview = transcript
-    .split("\n")
-    .slice(0, 3)
-    .map((line) => line.trim())
-    .join(" ");
-
-  return [
-    "Patient Context",
-    "Admitted under cardiology with decompensated heart failure picture.",
-    "",
-    "Overnight / Interval Events",
-    "Improved breathlessness overnight with no recurrent chest pain. Brief AF noted on telemetry and self-resolved.",
-    "",
-    "Symptoms",
-    "Less dyspnoeic today. No ongoing chest pain. No current palpitations reported.",
-    "",
-    "Observations",
-    "Haemodynamically stable. Weight down and negative fluid balance documented.",
-    "",
-    "Examination",
-    "Mildly elevated JVP with improving bibasal crackles and only trace peripheral oedema.",
-    "",
-    "Key Investigations",
-    "Creatinine stable, potassium acceptable, troponin flat, echo showing reduced LV systolic function.",
-    "",
-    "Assessment",
-    "Improving decompensated HFrEF with favourable response to diuresis.",
-    "",
-    "Active Problems",
-    "- Decompensated heart failure, improving with IV diuresis\n- Brief atrial fibrillation episode overnight\n- Ongoing discharge planning if improvement continues",
-    "",
-    "Plan Today",
-    "Continue IV diuresis today, monitor renal function and electrolytes, continue guideline-directed therapy where tolerated, and reassess discharge readiness tomorrow.",
-    "",
-    "Discharge Considerations",
-    "Potential discharge in 24–48 hours if clinically stable with continued improvement and no new rhythm issues.",
-    "",
-    `Transcript preview used in mock mode: ${preview}`,
-  ].join("\n");
+function buildMockStructuredNote() {
+  return {
+    patientContext: "Admitted under cardiology with decompensated HFrEF and reduced EF on recent echo.",
+    overnightEvents: "Less breathless overnight. No recurrent chest pain. Brief AF noted on telemetry and self-resolved.",
+    symptoms: "Improved dyspnoea today. No ongoing chest pain or palpitations.",
+    observations: "Haemodynamically stable. Weight down and negative fluid balance documented.",
+    examination: "Mildly elevated JVP, improving bibasal crackles, trace peripheral oedema.",
+    keyInvestigations: "Creatinine stable, potassium acceptable, troponin flat, echo with reduced LV systolic function.",
+    assessment: "Improving decompensated HFrEF with favourable response to IV diuresis. Brief AF overnight now back in sinus rhythm.",
+    activeProblems: [
+      "Decompensated HFrEF, improving on IV diuresis",
+      "Brief paroxysmal AF overnight, currently in sinus rhythm",
+      "Residual volume overload with mildly elevated JVP",
+    ],
+    planToday: [
+      "Continue IV furosemide",
+      "Monitor renal function and electrolytes",
+      "Continue bisoprolol",
+      "Reassess discharge readiness tomorrow if improvement continues",
+    ],
+    dischargeConsiderations: "Potential discharge in 24–48 hours if clinically stable with no further rhythm issues and ongoing response to treatment.",
+  };
 }
 
 export async function POST(request: Request) {
@@ -55,8 +44,10 @@ export async function POST(request: Request) {
   const mockMode = process.env.MOCK_NOTE_GENERATION !== "0";
 
   if (mockMode) {
+    const structured = buildMockStructuredNote();
     const response: NoteGenerationResponse = {
-      soapNote: buildMockSoapNote(transcript),
+      soapNote: renderStructuredNote(structured),
+      structured,
       mode: "mock",
     };
 
@@ -83,13 +74,13 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: getAnthropicModel(),
-        max_tokens: 900,
-        temperature: 0.2,
-        system: "You produce draft clinical SOAP notes for clinician review.",
+        max_tokens: 1200,
+        temperature: 0.1,
+        system: "You produce structured inpatient cardiology note data for clinician review.",
         messages: [
           {
             role: "user",
-            content: buildSoapPrompt(transcript, body.encounterType),
+            content: buildStructuredCardiacPrompt(transcript, body.encounterType),
           },
         ],
       }),
@@ -116,8 +107,23 @@ export async function POST(request: Request) {
       .join("\n")
       .trim();
 
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      console.error("Structured note JSON parse failed", text, error);
+      return NextResponse.json(
+        {
+          error: "Model did not return valid structured JSON.",
+        },
+        { status: 502 },
+      );
+    }
+
+    const structured = coerceStructuredCardiacNote(parsed);
     const result: NoteGenerationResponse = {
-      soapNote: text || "No note output returned.",
+      soapNote: renderStructuredNote(structured),
+      structured,
       mode: "provider",
     };
 

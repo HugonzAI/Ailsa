@@ -1,9 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { EncounterType } from "@/lib/types";
+import type { EncounterType, StructuredCardiacNote } from "@/lib/types";
 
-const demoTranscript = `Registrar: Overnight she was less breathless and there was no further chest pain.\nNurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm.\nDoctor: Weight is down 1.2 kg, urine output was good, and fluid balance was negative 1.4 litres.\nDoctor: Blood pressure 108 over 64, heart rate 78, oxygen saturation 96 percent on room air, afebrile.\nDoctor: JVP is mildly elevated, bibasal crackles have improved, and there is only trace ankle oedema now.\nDoctor: Creatinine is stable, potassium is 4.2, troponin is flat, and yesterday's echo showed reduced LV systolic function with EF around 35 percent.\nDoctor: Overall this looks like improving decompensated HFrEF.\nDoctor: Continue IV furosemide today, monitor renal function and electrolytes, continue bisoprolol, and consider discharge in 24 to 48 hours if she keeps improving.`;
+const demoTranscript = `Registrar: Overnight she was less breathless and there was no further chest pain.
+Nurse: Telemetry showed brief atrial fibrillation overnight, now back in sinus rhythm.
+Doctor: Weight is down 1.2 kg, urine output was good, and fluid balance was negative 1.4 litres.
+Doctor: Blood pressure 108 over 64, heart rate 78, oxygen saturation 96 percent on room air, afebrile.
+Doctor: JVP is mildly elevated, bibasal crackles have improved, and there is only trace ankle oedema now.
+Doctor: Creatinine is stable, potassium is 4.2, troponin is flat, and yesterday's echo showed reduced LV systolic function with EF around 35 percent.
+Doctor: Overall this looks like improving decompensated HFrEF.
+Doctor: Continue IV furosemide today, monitor renal function and electrolytes, continue bisoprolol, and consider discharge in 24 to 48 hours if she keeps improving.`;
 
 const encounterOptions: EncounterType[] = [
   "Cardiac ward round",
@@ -15,9 +22,23 @@ const encounterOptions: EncounterType[] = [
   "Syncope / presyncope review",
 ];
 
+const emptyStructured: StructuredCardiacNote = {
+  patientContext: "",
+  overnightEvents: "",
+  symptoms: "",
+  observations: "",
+  examination: "",
+  keyInvestigations: "",
+  assessment: "",
+  activeProblems: [],
+  planToday: [],
+  dischargeConsiderations: "",
+};
+
 export function NoteStudio() {
   const [transcript, setTranscript] = useState(demoTranscript);
   const [output, setOutput] = useState("Cardiology ward note draft will appear here.");
+  const [structured, setStructured] = useState<StructuredCardiacNote>(emptyStructured);
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -45,13 +66,15 @@ export function NoteStudio() {
         throw new Error(`Request failed with status ${response.status}`);
       }
 
-      const data = (await response.json()) as { soapNote: string; mode: string };
+      const data = (await response.json()) as { soapNote: string; mode: string; structured: StructuredCardiacNote };
       setOutput(data.soapNote);
+      setStructured(data.structured || emptyStructured);
       setStatus(`Draft ready · ${data.mode} mode · ${encounterType}`);
     } catch (error) {
       console.error(error);
       setStatus("Failed to generate note");
       setOutput("Could not generate a cardiology ward note draft. Check API keys or keep MOCK_NOTE_GENERATION=1 while scaffolding.");
+      setStructured(emptyStructured);
     } finally {
       setLoading(false);
     }
@@ -105,6 +128,18 @@ export function NoteStudio() {
     }
   }
 
+  const hasStructuredContent =
+    Boolean(structured.patientContext) ||
+    Boolean(structured.overnightEvents) ||
+    Boolean(structured.symptoms) ||
+    Boolean(structured.observations) ||
+    Boolean(structured.examination) ||
+    Boolean(structured.keyInvestigations) ||
+    Boolean(structured.assessment) ||
+    structured.activeProblems.length > 0 ||
+    structured.planToday.length > 0 ||
+    Boolean(structured.dischargeConsiderations);
+
   return (
     <div className="grid">
       <section className="card">
@@ -156,13 +191,29 @@ export function NoteStudio() {
       </section>
 
       <section className="card">
-        <h2>Draft cardiology ward note</h2>
-        <p>This output is meant for clinician review first. The current target style is a concise NZ inpatient cardiology ward note rather than a generic polished summary.</p>
+        <h2>Structured cardiac draft</h2>
+        <p>This output is meant for clinician review first. The model now returns structured cardiac note sections, problem lists, and plan items rather than only one block of text.</p>
         <div className="buttonRow compact">
           <button className="buttonSecondary" type="button" onClick={copyOutput}>Copy note</button>
           <button className="buttonSecondary" type="button" onClick={generate} disabled={loading}>Regenerate</button>
         </div>
-        <div className="output">{output}</div>
+
+        {hasStructuredContent ? (
+          <div className="structuredGrid">
+            <div className="structuredSection"><span className="label">Patient Context</span><div className="output compact">{structured.patientContext || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Overnight / Interval Events</span><div className="output compact">{structured.overnightEvents || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Symptoms</span><div className="output compact">{structured.symptoms || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Observations</span><div className="output compact">{structured.observations || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Examination</span><div className="output compact">{structured.examination || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Key Investigations</span><div className="output compact">{structured.keyInvestigations || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Assessment</span><div className="output compact">{structured.assessment || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Active Problems</span><div className="output compact">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Plan Today</span><div className="output compact">{structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Discharge Considerations</span><div className="output compact">{structured.dischargeConsiderations || "—"}</div></div>
+          </div>
+        ) : (
+          <div className="output">{output}</div>
+        )}
       </section>
     </div>
   );
