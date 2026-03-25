@@ -7,9 +7,9 @@ import {
   renderStructuredNote,
   sanitizeStructuredCardiacNote,
 } from "@/lib/anthropic";
-import type { NoteGenerationRequest, NoteGenerationResponse } from "@/lib/types";
+import type { NoteGenerationRequest, NoteGenerationResponse, StructuredCardiacNote } from "@/lib/types";
 
-function buildMockStructuredNote() {
+function buildMockStructuredNote(): StructuredCardiacNote {
   return {
     patientContext: {
       explicitDemographics: "",
@@ -49,6 +49,26 @@ function buildMockStructuredNote() {
     nextReview: "Review again tomorrow; consider discharge in 24–48 hours if stable.",
     escalationsSafetyConcerns: "",
     dischargeConsiderations: "Potential discharge in 24–48 hours if clinically stable with no further rhythm issues and ongoing response to treatment.",
+    evidenceSupport: [
+      {
+        claim: "Current picture is consistent with improving decompensated HFrEF after diuresis.",
+        rationale: "Improving breathlessness, negative fluid balance, weight reduction, and improving congestion all support response to decongestive therapy.",
+        evidenceType: "common-practice",
+        confidence: "medium",
+        citationLabel: "General heart failure guidance",
+      },
+      {
+        claim: "Ongoing electrolyte and renal monitoring is consistent with standard IV diuresis safety practice.",
+        rationale: "Transcript includes continued IV furosemide with explicit plan to monitor renal function and electrolytes.",
+        evidenceType: "risk-flag",
+        confidence: "high",
+        citationLabel: "General inpatient heart failure practice",
+      },
+    ],
+    evidenceLimitations: [
+      "No full medication chart available in transcript.",
+      "No trend data beyond the described overnight interval.",
+    ],
   };
 }
 
@@ -93,9 +113,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: getAnthropicModel(),
-        max_tokens: 1400,
+        max_tokens: 1800,
         temperature: 0.1,
-        system: "You produce structured inpatient cardiology note and handover data for clinician review.",
+        system: "You produce structured inpatient cardiology note, handover, and evidence-support data for clinician review.",
         messages: [
           {
             role: "user",

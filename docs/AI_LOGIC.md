@@ -53,6 +53,15 @@ Why these exist:
 - Heidi-style workflow value is not only in note drafting but also in converting the round into actions, handover tasks, and next review signals
 - Ailsa should learn from that workflow layer without mixing large evidence lectures into the core note body
 
+### evidence support fields
+- `evidenceSupport[]`
+- `evidenceLimitations[]`
+
+Why these exist:
+- Heidi appears stronger not only because of note style, but because its framing often feels backed by guideline/evidence logic
+- Ailsa should keep that as a separate support layer rather than polluting the note body with long explanations
+- evidence support must remain conservative, optional, and clearly distinct from patient facts
+
 Rule:
 - if the transcript does not explicitly state a demographic or admission fact, leave it blank
 - do not infer sex, age, or background disease from vibe or from later assessment wording
@@ -73,6 +82,8 @@ Current strategy:
 - ask for registrar/house-officer style rather than polished summariser prose
 - bias the wording toward short ward-round shorthand, especially in observations, assessment, and plan
 - avoid turning the note into evidence-based counselling or guideline explanation inside the note body
+- allow a separate `evidenceSupport` layer for conservative rationale / guideline-context style support when the transcript justifies it
+- keep evidence support optional; if uncertain, prefer an empty evidence block over fake citations or fake confidence
 
 ## Current runtime files
 

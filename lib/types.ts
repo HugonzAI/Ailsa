@@ -26,6 +26,17 @@ export type TaskItem = {
   urgency: string;
 };
 
+export type EvidenceSupportType = "guideline" | "common-practice" | "risk-flag";
+export type EvidenceConfidence = "low" | "medium" | "high";
+
+export type EvidenceSupportItem = {
+  claim: string;
+  rationale: string;
+  evidenceType: EvidenceSupportType;
+  confidence: EvidenceConfidence;
+  citationLabel: string;
+};
+
 export type StructuredCardiacNote = {
   patientContext: PatientContext;
   overnightEvents: string;
@@ -41,6 +52,8 @@ export type StructuredCardiacNote = {
   nextReview: string;
   escalationsSafetyConcerns: string;
   dischargeConsiderations: string;
+  evidenceSupport: EvidenceSupportItem[];
+  evidenceLimitations: string[];
 };
 
 export type NoteGenerationResponse = {

@@ -1,4 +1,4 @@
-import type { PatientContext, StructuredCardiacNote, TaskItem } from "@/lib/types";
+import type { EvidenceSupportItem, PatientContext, StructuredCardiacNote, TaskItem } from "@/lib/types";
 
 export function getAnthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY || null;
@@ -32,6 +32,8 @@ export function emptyStructuredNote(): StructuredCardiacNote {
     nextReview: "",
     escalationsSafetyConcerns: "",
     dischargeConsiderations: "",
+    evidenceSupport: [],
+    evidenceLimitations: [],
   };
 }
 
@@ -47,6 +49,9 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "If something is not stated, use an empty string or empty array rather than guessing.",
     "Do not infer sex, age, ward location, admission reason, or background diagnosis unless the transcript explicitly states them.",
     "If a diagnosis is only implied rather than explicitly stated, phrase it conservatively in assessment instead of placing it as a hard patient-context fact.",
+    "Evidence support must stay separate from the note body. Do not turn the note itself into a long explanation.",
+    "For evidenceSupport: only provide conservative, guideline-aware support statements that are clearly tied to transcript-supported clinical framing. If unsure, leave evidenceSupport empty.",
+    "Do not pretend to quote a paper or guideline you cannot clearly support. citationLabel should be generic unless explicitly grounded elsewhere.",
     "Use this exact JSON shape:",
     '{',
     '  "patientContext": {',
@@ -66,7 +71,9 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     '  "actionSummary": [""],',
     '  "nextReview": "",',
     '  "escalationsSafetyConcerns": "",',
-    '  "dischargeConsiderations": ""',
+    '  "dischargeConsiderations": "",',
+    '  "evidenceSupport": [{ "claim": "", "rationale": "", "evidenceType": "guideline", "confidence": "low", "citationLabel": "" }],',
+    '  "evidenceLimitations": [""]',
     '}',
     "Requirements:",
     "- Keep strings compact and clinically styled",
@@ -75,12 +82,16 @@ export function buildStructuredCardiacPrompt(transcript: string, encounterType =
     "- Assessment should usually be one short clinically conservative summary line",
     "- activeProblems should be a short list of current cardiology problems",
     "- planToday should be a short list of concrete ward actions for today using terse action-oriented wording",
-    "- tasksAllocated should only include clearly attributable tasks from the transcript; leave owner/timing blank if not stated",
+    "- tasksAllocated should only include clearly attributable tasks from the transcript; leave owner/timing/urgency blank if not stated",
     "- actionSummary should be a concise list of the highest-priority actions coming out of the note",
     "- nextReview should mention next review timing or trigger only if supported by the transcript",
     "- escalationsSafetyConcerns should be blank unless the transcript explicitly mentions a risk, escalation concern, or safety issue",
     "- dischargeConsiderations should mention readiness, barriers, or follow-up only if supported by the transcript",
-    "- Do not invent demographics, comorbidities, admission details, or results that are not stated",
+    "- evidenceSupport is optional and separate from the note body",
+    "- evidenceSupport items should be short, conservative, and framed as support/context rather than orders",
+    "- evidenceSupport claim must be traceable to transcript-supported syndrome framing, common work-up logic, or risk-flag logic",
+    "- evidenceLimitations should capture what is missing or why evidence support is limited if relevant",
+    "- Do not invent demographics, comorbidities, admission details, results, or literature citations that are not stated",
     "- patientContext should be especially strict: if not explicit in the transcript, leave it blank or partial rather than filling gaps",
     "",
     "Transcript:",
@@ -100,7 +111,13 @@ function formatPatientContext(context: PatientContext) {
 
 function formatTask(task: TaskItem) {
   const parts = [task.task, task.owner, task.timing, task.urgency].filter(Boolean);
-  return parts.join(' — ');
+  return parts.join(" — ");
+}
+
+function formatEvidenceItem(item: EvidenceSupportItem) {
+  const meta = [item.evidenceType, item.confidence, item.citationLabel].filter(Boolean).join(" | ");
+  const body = [item.claim, item.rationale].filter(Boolean).join(" — ");
+  return meta ? `${body} (${meta})` : body;
 }
 
 export function renderStructuredNote(note: StructuredCardiacNote) {
@@ -146,6 +163,12 @@ export function renderStructuredNote(note: StructuredCardiacNote) {
     "",
     "Discharge Considerations",
     note.dischargeConsiderations || "",
+    "",
+    "Evidence Support",
+    ...(note.evidenceSupport.length ? note.evidenceSupport.map((item) => `- ${formatEvidenceItem(item)}`) : [""]),
+    "",
+    "Evidence Limitations",
+    ...(note.evidenceLimitations.length ? note.evidenceLimitations.map((item) => `- ${item}`) : [""]),
   ].join("\n").trim();
 }
 
@@ -178,6 +201,32 @@ function coerceTaskItems(value: unknown): TaskItem[] {
     .filter((item) => item.task || item.owner || item.timing || item.urgency);
 }
 
+function coerceEvidenceItems(value: unknown): EvidenceSupportItem[] {
+  if (!Array.isArray(value)) return [];
+
+  const evidenceTypes = new Set(["guideline", "common-practice", "risk-flag"]);
+  const confidenceTypes = new Set(["low", "medium", "high"]);
+
+  return value
+    .map((item) => {
+      const data = (typeof item === "object" && item !== null ? item : {}) as Record<string, unknown>;
+      const claim = typeof data.claim === "string" ? data.claim.trim() : "";
+      const rationale = typeof data.rationale === "string" ? data.rationale.trim() : "";
+      const evidenceType = typeof data.evidenceType === "string" && evidenceTypes.has(data.evidenceType) ? data.evidenceType : "common-practice";
+      const confidence = typeof data.confidence === "string" && confidenceTypes.has(data.confidence) ? data.confidence : "low";
+      const citationLabel = typeof data.citationLabel === "string" ? data.citationLabel.trim() : "";
+
+      return {
+        claim,
+        rationale,
+        evidenceType: evidenceType as EvidenceSupportItem["evidenceType"],
+        confidence: confidence as EvidenceSupportItem["confidence"],
+        citationLabel,
+      };
+    })
+    .filter((item) => item.claim || item.rationale);
+}
+
 export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
 
@@ -185,7 +234,8 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
   const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|primary reason for admission|presented with chest pain|presented with syncope|presented with dyspnoea)/i.test(lower);
   const hasExplicitBackground = /(history of|past medical history|pmhx|known to have|background of|prior pci|prior cabg|known hfre?f|known hf|known af|known ischaemic heart disease)/i.test(lower);
   const hasEscalationSignal = /(escalat|safety|concern|watch closely|unstable|review urgently|if deteriorates|if worsens)/i.test(lower);
-  const hasNextReviewSignal = /(review tomorrow|review later|next review|following results|after results|reassess tomorrow|within 24|24 to 48 hours)/i.test(lower);
+  const hasNextReviewSignal = /(review tomorrow|review later|next review|following results|after results|reassess tomorrow|within 24|24 to 48 hours|pending investigations)/i.test(lower);
+  const mentionGuidelineSource = /(guideline|evidence|acs|angina|heart failure|atrial fibrillation|arrhythmia|troponin|stress test|angiography|telemetry|ecg|echo)/i.test(lower);
 
   return {
     ...note,
@@ -196,8 +246,22 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
     },
     nextReview: hasNextReviewSignal ? note.nextReview : "",
     escalationsSafetyConcerns: hasEscalationSignal ? note.escalationsSafetyConcerns : "",
-    tasksAllocated: note.tasksAllocated.filter((task) => task.task),
+    tasksAllocated: note.tasksAllocated
+      .map((task) => ({
+        ...task,
+        urgency: /(urgent|today|routine|stat|asap)/i.test(task.urgency) ? task.urgency : "",
+      }))
+      .filter((task) => task.task),
     actionSummary: note.actionSummary.filter(Boolean),
+    evidenceSupport: mentionGuidelineSource
+      ? note.evidenceSupport
+          .map((item) => ({
+            ...item,
+            citationLabel: /guideline|consensus|esc|aha|acc|nz/i.test(item.citationLabel) ? item.citationLabel : item.citationLabel || "General cardiology guidance",
+          }))
+          .filter((item) => item.claim && item.rationale)
+      : [],
+    evidenceLimitations: note.evidenceLimitations.filter(Boolean),
   };
 }
 
@@ -223,5 +287,7 @@ export function coerceStructuredCardiacNote(input: unknown): StructuredCardiacNo
     nextReview: toStringValue(data.nextReview),
     escalationsSafetyConcerns: toStringValue(data.escalationsSafetyConcerns),
     dischargeConsiderations: toStringValue(data.dischargeConsiderations),
+    evidenceSupport: coerceEvidenceItems(data.evidenceSupport),
+    evidenceLimitations: toStringArray(data.evidenceLimitations),
   };
 }

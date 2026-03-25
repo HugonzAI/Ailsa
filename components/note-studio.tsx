@@ -44,6 +44,8 @@ const emptyStructured: StructuredCardiacNote = {
   nextReview: "",
   escalationsSafetyConcerns: "",
   dischargeConsiderations: "",
+  evidenceSupport: [],
+  evidenceLimitations: [],
 };
 
 export function NoteStudio() {
@@ -163,7 +165,9 @@ export function NoteStudio() {
     structured.actionSummary.length > 0 ||
     Boolean(structured.nextReview) ||
     Boolean(structured.escalationsSafetyConcerns) ||
-    Boolean(structured.dischargeConsiderations);
+    Boolean(structured.dischargeConsiderations) ||
+    structured.evidenceSupport.length > 0 ||
+    structured.evidenceLimitations.length > 0;
 
   return (
     <div className="grid">
@@ -239,6 +243,8 @@ export function NoteStudio() {
             <div className="structuredSection"><span className="label">Next Review</span><div className="output compact">{structured.nextReview || "—"}</div></div>
             <div className="structuredSection"><span className="label">Escalations / Safety Concerns</span><div className="output compact">{structured.escalationsSafetyConcerns || "—"}</div></div>
             <div className="structuredSection"><span className="label">Discharge Considerations</span><div className="output compact">{structured.dischargeConsiderations || "—"}</div></div>
+            <div className="structuredSection"><span className="label">Evidence Support</span><div className="output compact">{structured.evidenceSupport.length ? structured.evidenceSupport.map((item) => `• ${[item.claim, item.rationale].filter(Boolean).join(" — ")} (${[item.evidenceType, item.confidence, item.citationLabel].filter(Boolean).join(" | ")})`).join("\n") : "—"}</div></div>
+            <div className="structuredSection"><span className="label">Evidence Limitations</span><div className="output compact">{structured.evidenceLimitations.length ? structured.evidenceLimitations.map((item) => `• ${item}`).join("\n") : "—"}</div></div>
           </div>
         ) : (
           <div className="output">{output}</div>
