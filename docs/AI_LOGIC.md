@@ -96,9 +96,11 @@ Current strategy:
 
 - `app/api/generate-note/route.ts` -> note generation entrypoint
 - `app/api/transcribe/route.ts` -> transcription entrypoint
+- `app/api/sessions/route.ts` -> cloud-backed session persistence entrypoint
 - `lib/anthropic.ts` -> prompt + coercion + plain-text rendering helpers
 - `lib/openai.ts` -> OpenAI key helper for Whisper route
 - `lib/types.ts` -> note schema
+- `lib/workspace-session.ts` -> session schema / local-cloud merge helpers
 - `components/note-studio.tsx` -> UI for transcript input and structured output
 
 ## Current provider setup
@@ -106,9 +108,11 @@ Current strategy:
 - Anthropic model via direct HTTP fetch (not SDK)
 - OpenAI Whisper via direct HTTP fetch (not SDK)
 - Cloudflare Workers runtime
+- Cloudflare D1 for cloud-backed workspace session persistence
 
 Reason:
 - direct fetch has been more reliable than provider SDKs inside Workers runtime
+- D1 is enough for v1 session state without prematurely moving large audio blobs off-browser
 
 ## Anti-hallucination policy
 

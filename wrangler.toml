@@ -14,6 +14,11 @@ ANTHROPIC_MODEL = "claude-sonnet-4-6"
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+[[d1_databases]]
+binding = "AILSA_DB"
+database_name = "ailsa-sessions"
+database_id = "c4753247-7d5f-482d-b3a5-858a84e714f8"
+
 [[routes]]
 pattern = "ailsa.co.nz"
 zone_name = "ailsa.co.nz"

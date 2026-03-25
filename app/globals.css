@@ -59,6 +59,7 @@ button { border: 0; background: none; }
   border-right: 1px solid rgba(203,213,225,0.4); display: flex; flex-direction: column;
 }
 .intakeBlock { display:grid; gap:16px; }
+.workspaceSessionHeader { display:grid; gap:10px; }
 .fieldGroup { display:grid; gap:6px; }
 .newEncounterButton,.primaryDarkButton,.primarySidecarButton {
   width:100%; border-radius:12px; font-weight:700; cursor:pointer;

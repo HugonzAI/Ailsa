@@ -23,6 +23,13 @@ import {
   saveStoredRecording,
   type StoredRecording,
 } from "@/components/note-studio/recording-store";
+import {
+  createDefaultSession,
+  mergeWorkspaceSessions,
+  WORKSPACE_SESSIONS_KEY,
+  type WorkspaceSession,
+  type WorkspaceSessionStore,
+} from "@/lib/workspace-session";
 
 type BrowserMediaRecorder = typeof MediaRecorder;
 
@@ -130,15 +137,57 @@ export function NoteStudio() {
   const [editableOutput, setEditableOutput] = useState(false);
   const [recordings, setRecordings] = useState<StoredRecording[]>([]);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
+  const [workspaceSessions, setWorkspaceSessions] = useState<WorkspaceSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingMimeTypeRef = useRef<string>("");
   const activeRecordingIdRef = useRef<string | null>(null);
+  const sessionsHydratedRef = useRef(false);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(WORKSPACE_SESSIONS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as WorkspaceSessionStore) : null;
+      const sessions = parsed?.sessions?.length ? parsed.sessions : [createDefaultSession(crypto.randomUUID())];
+      const selected = sessions.find((session) => session.id === parsed?.currentSessionId) || sessions[0];
+      setWorkspaceSessions(sessions);
+      setCurrentSessionId(selected.id);
+      applySession(selected);
+    } catch (error) {
+      console.error(error);
+      const fallback = createDefaultSession(crypto.randomUUID());
+      setWorkspaceSessions([fallback]);
+      setCurrentSessionId(fallback.id);
+      applySession(fallback);
+    } finally {
+      sessionsHydratedRef.current = true;
+    }
+
     void (async () => {
+      try {
+        const cloudSessions = await fetchCloudSessions();
+        if (cloudSessions.length) {
+          setWorkspaceSessions((current) => {
+            const merged = mergeWorkspaceSessions(current, cloudSessions);
+            const currentOrLatest = merged.find((session) => session.id === currentSessionId) || merged[0];
+            if (currentOrLatest) {
+              setCurrentSessionId(currentOrLatest.id);
+              applySession(currentOrLatest);
+            }
+            window.localStorage.setItem(
+              WORKSPACE_SESSIONS_KEY,
+              JSON.stringify({ currentSessionId: currentOrLatest?.id || "", sessions: merged } satisfies WorkspaceSessionStore),
+            );
+            return merged;
+          });
+        }
+      } catch (error) {
+        console.error("Cloud session hydration failed", error);
+      }
+
       const recoveredCount = await recoverInterruptedRecordings();
       await refreshRecordings();
       if (recoveredCount > 0) {
@@ -155,6 +204,64 @@ export function NoteStudio() {
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    if (!sessionsHydratedRef.current || !currentSessionId) return;
+
+    const snapshot = buildSessionSnapshot(currentSessionId);
+    const nextSessions = workspaceSessions.some((session) => session.id === currentSessionId)
+      ? workspaceSessions.map((session) => (session.id === currentSessionId ? snapshot : session))
+      : [...workspaceSessions, snapshot];
+
+    setWorkspaceSessions(nextSessions);
+    window.localStorage.setItem(
+      WORKSPACE_SESSIONS_KEY,
+      JSON.stringify({ currentSessionId, sessions: nextSessions } satisfies WorkspaceSessionStore),
+    );
+  }, [
+    currentSessionId,
+    encounterType,
+    transcriptionLanguage,
+    transcript,
+    output,
+    structured,
+    transcriptConfirmed,
+    transcriptFromAudio,
+    speakerLines,
+    reviewStatus,
+    auditLog,
+    showEvidence,
+    editableOutput,
+    status,
+  ]);
+
+  useEffect(() => {
+    if (!sessionsHydratedRef.current || !currentSessionId) return;
+
+    const snapshot = buildSessionSnapshot(currentSessionId);
+    const timeout = window.setTimeout(() => {
+      void saveCloudSession(snapshot).catch((error) => {
+        console.error("Cloud session save failed", error);
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    currentSessionId,
+    encounterType,
+    transcriptionLanguage,
+    transcript,
+    output,
+    structured,
+    transcriptConfirmed,
+    transcriptFromAudio,
+    speakerLines,
+    reviewStatus,
+    auditLog,
+    showEvidence,
+    editableOutput,
+    status,
+  ]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -204,6 +311,101 @@ export function NoteStudio() {
   const hasStructuredContent = output !== outputPlaceholder;
   const transcriptNeedsConfirmation = Boolean(selectedFile && !transcriptConfirmed);
   const showTranscriptBanner = Boolean(transcriptFromAudio && selectedFile && !transcriptConfirmed);
+
+  function applySession(session: WorkspaceSession) {
+    setEncounterType(session.encounterType);
+    setTranscriptionLanguage(session.transcriptionLanguage);
+    setTranscript(session.transcript);
+    setOutput(session.output);
+    setStructured(session.structured);
+    setTranscriptConfirmed(session.transcriptConfirmed);
+    setTranscriptFromAudio(session.transcriptFromAudio);
+    setSpeakerLines(session.speakerLines);
+    setReviewStatus(session.reviewStatus);
+    setAuditLog(session.auditLog);
+    setShowEvidence(session.showEvidence);
+    setEditableOutput(session.editableOutput);
+    setStatus(session.status);
+    setSelectedFile(null);
+    setCurrentRecordingId(null);
+  }
+
+  function buildSessionSnapshot(sessionId: string, fallbackName?: string): WorkspaceSession {
+    const existing = workspaceSessions.find((session) => session.id === sessionId);
+    return {
+      id: sessionId,
+      name: existing?.name || fallbackName || `Session ${workspaceSessions.length + 1}`,
+      updatedAt: new Date().toISOString(),
+      encounterType,
+      transcriptionLanguage,
+      transcript,
+      output,
+      structured,
+      transcriptConfirmed,
+      transcriptFromAudio,
+      speakerLines,
+      reviewStatus,
+      auditLog,
+      showEvidence,
+      editableOutput,
+      status,
+    };
+  }
+
+  async function fetchCloudSessions() {
+    const response = await fetch("/api/sessions", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Session fetch failed with status ${response.status}`);
+    const data = (await response.json()) as { sessions: WorkspaceSession[] };
+    return data.sessions || [];
+  }
+
+  async function saveCloudSession(session: WorkspaceSession) {
+    const response = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(session),
+    });
+
+    if (!response.ok) throw new Error(`Session save failed with status ${response.status}`);
+  }
+
+  function createWorkspaceSession() {
+    const next = createDefaultSession(crypto.randomUUID(), {
+      name: `Session ${workspaceSessions.length + 1}`,
+    });
+    const nextSessions = [next, ...workspaceSessions];
+    setWorkspaceSessions(nextSessions);
+    setCurrentSessionId(next.id);
+    applySession(next);
+    setStatus(`Started ${next.name}`);
+    window.localStorage.setItem(
+      WORKSPACE_SESSIONS_KEY,
+      JSON.stringify({ currentSessionId: next.id, sessions: nextSessions } satisfies WorkspaceSessionStore),
+    );
+  }
+
+  function selectWorkspaceSession(sessionId: string) {
+    const target = workspaceSessions.find((session) => session.id === sessionId);
+    if (!target) return;
+
+    if (currentSessionId) {
+      const currentSnapshot = buildSessionSnapshot(currentSessionId);
+      const updatedSessions = workspaceSessions.map((session) => (session.id === currentSessionId ? currentSnapshot : session));
+      setWorkspaceSessions(updatedSessions);
+      const refreshedTarget = updatedSessions.find((session) => session.id === sessionId) || target;
+      setCurrentSessionId(sessionId);
+      applySession(refreshedTarget);
+      setStatus(`Loaded ${refreshedTarget.name}`);
+      window.localStorage.setItem(
+        WORKSPACE_SESSIONS_KEY,
+        JSON.stringify({ currentSessionId: sessionId, sessions: updatedSessions } satisfies WorkspaceSessionStore),
+      );
+      return;
+    }
+
+    setCurrentSessionId(sessionId);
+    applySession(target);
+  }
 
   async function refreshRecordings() {
     try {
@@ -629,6 +831,8 @@ export function NoteStudio() {
 
       <main className="clinicalWorkspace">
         <IntakeRail
+          currentSessionId={currentSessionId}
+          sessions={workspaceSessions.map((session) => ({ id: session.id, name: session.name, updatedAt: session.updatedAt }))}
           encounterType={encounterType}
           transcript={transcript}
           transcriptStats={transcriptStats}
@@ -713,6 +917,8 @@ export function NoteStudio() {
           onSpeakerLineChange={handleSpeakerLineChange}
           onSpeakerLineTextChange={handleSpeakerLineTextChange}
           onSpeakerLineReviewToggle={handleSpeakerLineReviewToggle}
+          onCreateSession={createWorkspaceSession}
+          onSelectSession={selectWorkspaceSession}
         />
 
         <DraftWorkspace

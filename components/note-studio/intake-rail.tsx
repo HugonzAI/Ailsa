@@ -4,6 +4,8 @@ import { encounterOptions } from "@/components/note-studio/constants";
 import type { StoredRecording } from "@/components/note-studio/recording-store";
 
 type IntakeRailProps = {
+  currentSessionId: string;
+  sessions: { id: string; name: string; updatedAt: string }[];
   encounterType: EncounterType;
   transcript: string;
   transcriptStats: { words: number; chars: number };
@@ -36,6 +38,8 @@ type IntakeRailProps = {
   onSpeakerLineChange: (index: number, speaker: TranscriptSpeakerLine["speaker"]) => void;
   onSpeakerLineTextChange: (index: number, text: string) => void;
   onSpeakerLineReviewToggle: (index: number) => void;
+  onCreateSession: () => void;
+  onSelectSession: (sessionId: string) => void;
 };
 
 function formatRecordingTime(value: string) {
@@ -97,6 +101,8 @@ function needsReviewSpeaker(speaker: TranscriptSpeaker) {
 }
 
 export function IntakeRail({
+  currentSessionId,
+  sessions,
   encounterType,
   transcript,
   transcriptStats,
@@ -129,6 +135,8 @@ export function IntakeRail({
   onSpeakerLineChange,
   onSpeakerLineTextChange,
   onSpeakerLineReviewToggle,
+  onCreateSession,
+  onSelectSession,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
   const [speakerFilter, setSpeakerFilter] = useState<SpeakerFilter>("Needs review");
@@ -170,7 +178,24 @@ export function IntakeRail({
   return (
     <section className="intakeRail">
       <div className="intakeBlock">
-        <button className="newEncounterButton" type="button">New Encounter</button>
+        <div className="workspaceSessionHeader">
+          <button className="newEncounterButton" type="button" onClick={onCreateSession}>New Session</button>
+          <div className="fieldGroup">
+            <label className="microLabel" htmlFor="workspaceSession">Session</label>
+            <select
+              id="workspaceSession"
+              className="stitchSelect"
+              value={currentSessionId}
+              onChange={(e) => onSelectSession(e.target.value)}
+            >
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.name} · {formatRecordingTime(session.updatedAt)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <h3 className="microHeading">Context</h3>
 
         <div className="fieldGroup">
@@ -198,6 +223,8 @@ export function IntakeRail({
             <option value="en">English</option>
             <option value="zh">中文</option>
             <option value="mi">Te Reo Māori</option>
+            <option value="tl">Filipino</option>
+            <option value="ko">한국어</option>
           </select>
         </div>
 

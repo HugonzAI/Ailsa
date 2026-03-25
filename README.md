@@ -21,6 +21,7 @@ Ailsa currently includes:
 - **browser recording** via `MediaRecorder`
 - **audio upload** fallback
 - **IndexedDB local persistence** for recordings
+- **Cloudflare D1-backed session persistence** for workspace state
 - **interrupted recording recovery** for recordings left behind by refresh / interruption
 - **segmented long-recording transcription**
 - **spoken language control**
@@ -93,11 +94,13 @@ Current direction by document family:
 ### API routes
 - `app/api/generate-note/route.ts`
 - `app/api/transcribe/route.ts`
+- `app/api/sessions/route.ts`
 
 ### Core logic
 - `lib/anthropic.ts`
 - `lib/types.ts`
 - `lib/providers/*`
+- `lib/workspace-session.ts`
 
 ### Audio / transcript review
 - `components/note-studio/recording-store.ts`
@@ -178,6 +181,16 @@ npm run deploy
 - custom domain front door is:
   - `https://ailsa.co.nz`
 - site is intended to stay behind **Cloudflare Access** during testing
+
+## Persistence model
+
+Current storage split:
+
+- **Cloudflare D1** → workspace sessions, draft state, structured output, review state
+- **IndexedDB** → local recordings / audio chunks / recoverable interrupted recordings
+- **localStorage** → local session cache / fast restore fallback
+
+This keeps large audio blobs local-first while making document workspace state cloud-persistent.
 
 ## Notes on transcription behavior
 
