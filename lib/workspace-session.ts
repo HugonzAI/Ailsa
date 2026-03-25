@@ -41,14 +41,14 @@ function formatSessionTime(value: Date) {
 export function buildSmartSessionName(encounterType: EncounterType, transcript?: string) {
   const now = new Date();
   const labelMap: Record<EncounterType, string> = {
-    "Cardiac ward round": "Ward round",
-    "Cardiac admission": "Admission",
-    "Cardiac discharge": "Discharge",
-    "Cardiac handover": "Handover",
-    "Chest pain / ACS review": "Chest pain",
-    "Decompensated heart failure": "HF review",
-    "AF / arrhythmia review": "Arrhythmia",
-    "Syncope / presyncope review": "Syncope",
+    "Cardiac ward round": "Ward-round consult",
+    "Cardiac admission": "Admission consult",
+    "Cardiac discharge": "Discharge consult",
+    "Cardiac handover": "Handover consult",
+    "Chest pain / ACS review": "Chest pain consult",
+    "Decompensated heart failure": "HF consult",
+    "AF / arrhythmia review": "Arrhythmia consult",
+    "Syncope / presyncope review": "Syncope consult",
     "Cardiology consultant letter": "Consult letter",
   };
 

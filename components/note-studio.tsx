@@ -141,6 +141,8 @@ export function NoteStudio() {
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [workspaceSessions, setWorkspaceSessions] = useState<WorkspaceSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
+  const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
+  const [sessionNameDraft, setSessionNameDraft] = useState("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -264,6 +266,10 @@ export function NoteStudio() {
     editableOutput,
     status,
   ]);
+
+  useEffect(() => {
+    setSessionNameDraft(workspaceSessions.find((session) => session.id === currentSessionId)?.name || "");
+  }, [workspaceSessions, currentSessionId]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -958,20 +964,85 @@ export function NoteStudio() {
           </nav>
         </div>
         <div className="topBarRight">
-          <button className="iconButton" type="button" aria-label="Notifications">◦</button>
-          <button className="iconButton" type="button" aria-label="Settings">⋯</button>
+          <button className="iconButton" type="button" aria-label="Session management" onClick={() => setSessionManagerOpen((current) => !current)}>⋯</button>
           <div className="avatarDot" />
         </div>
       </header>
 
+      {sessionManagerOpen ? (
+        <div className="sessionManagerOverlay" onClick={() => setSessionManagerOpen(false)}>
+          <aside className="sessionManagerPanel" onClick={(event) => event.stopPropagation()}>
+            <div className="sessionManagerHeader">
+              <div>
+                <h3>Consultation workspace</h3>
+                <p>Manage saved consultations separately from the main recording flow.</p>
+              </div>
+              <button className="iconButton" type="button" onClick={() => setSessionManagerOpen(false)}>✕</button>
+            </div>
+            <button className="newEncounterButton" type="button" onClick={createWorkspaceSession}>New Session</button>
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="workspaceSessionManager">Current Session</label>
+              <select
+                id="workspaceSessionManager"
+                className="stitchSelect"
+                value={currentSessionId}
+                onChange={(e) => selectWorkspaceSession(e.target.value)}
+              >
+                {[...workspaceSessions]
+                  .filter((session) => !session.archived)
+                  .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+                  .map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="fieldGroup">
+              <label className="microLabel" htmlFor="sessionNameManager">Session Name</label>
+              <div className="sessionRenameRow">
+                <input
+                  id="sessionNameManager"
+                  className="stitchInput"
+                  value={sessionNameDraft}
+                  onChange={(e) => setSessionNameDraft(e.target.value)}
+                  onBlur={() => renameWorkspaceSession(sessionNameDraft)}
+                />
+                <button className="sessionRenameButton" type="button" onClick={() => renameWorkspaceSession(sessionNameDraft)}>
+                  Save
+                </button>
+              </div>
+            </div>
+            <div className="sessionAdminRow">
+              <button className="sessionAdminButton" type="button" onClick={archiveCurrentSession}>Archive</button>
+              <button className="sessionAdminButton danger" type="button" onClick={deleteCurrentSession}>Delete</button>
+            </div>
+            <div className="fieldGroup">
+              <label className="microLabel">Recent Sessions</label>
+              <div className="recentSessionsList">
+                {[...workspaceSessions]
+                  .filter((session) => !session.archived)
+                  .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+                  .slice(0, 8)
+                  .map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      className={`recentSessionButton${session.id === currentSessionId ? " active" : ""}`}
+                      onClick={() => selectWorkspaceSession(session.id)}
+                    >
+                      <strong>{session.name}</strong>
+                      <span>{new Intl.DateTimeFormat("en-NZ", { hour: "2-digit", minute: "2-digit", month: "short", day: "2-digit" }).format(new Date(session.updatedAt))}</span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
       <main className="clinicalWorkspace">
         <IntakeRail
-          currentSessionId={currentSessionId}
-          currentSessionName={workspaceSessions.find((session) => session.id === currentSessionId)?.name || ""}
-          sessions={[...workspaceSessions]
-            .filter((session) => !session.archived)
-            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-            .map((session) => ({ id: session.id, name: session.name, updatedAt: session.updatedAt }))}
           encounterType={encounterType}
           transcript={transcript}
           transcriptStats={transcriptStats}
@@ -1065,11 +1136,6 @@ export function NoteStudio() {
           onSpeakerLineChange={handleSpeakerLineChange}
           onSpeakerLineTextChange={handleSpeakerLineTextChange}
           onSpeakerLineReviewToggle={handleSpeakerLineReviewToggle}
-          onCreateSession={createWorkspaceSession}
-          onSelectSession={selectWorkspaceSession}
-          onRenameSession={renameWorkspaceSession}
-          onArchiveSession={archiveCurrentSession}
-          onDeleteSession={deleteCurrentSession}
         />
 
         <DraftWorkspace

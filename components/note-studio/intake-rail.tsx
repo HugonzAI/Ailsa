@@ -4,9 +4,6 @@ import { encounterOptions } from "@/components/note-studio/constants";
 import type { StoredRecording } from "@/components/note-studio/recording-store";
 
 type IntakeRailProps = {
-  currentSessionId: string;
-  currentSessionName: string;
-  sessions: { id: string; name: string; updatedAt: string }[];
   encounterType: EncounterType;
   transcript: string;
   transcriptStats: { words: number; chars: number };
@@ -42,11 +39,6 @@ type IntakeRailProps = {
   onSpeakerLineChange: (index: number, speaker: TranscriptSpeakerLine["speaker"]) => void;
   onSpeakerLineTextChange: (index: number, text: string) => void;
   onSpeakerLineReviewToggle: (index: number) => void;
-  onCreateSession: () => void;
-  onSelectSession: (sessionId: string) => void;
-  onRenameSession: (name: string) => void;
-  onArchiveSession: () => void;
-  onDeleteSession: () => void;
 };
 
 function formatRecordingTime(value: string) {
@@ -113,9 +105,6 @@ function needsReviewSpeaker(speaker: TranscriptSpeaker) {
 }
 
 export function IntakeRail({
-  currentSessionId,
-  currentSessionName,
-  sessions,
   encounterType,
   transcript,
   transcriptStats,
@@ -151,16 +140,10 @@ export function IntakeRail({
   onSpeakerLineChange,
   onSpeakerLineTextChange,
   onSpeakerLineReviewToggle,
-  onCreateSession,
-  onSelectSession,
-  onRenameSession,
-  onArchiveSession,
-  onDeleteSession,
 }: IntakeRailProps) {
   const recordingLabel = isRecording ? "Stop Recording" : transcribing ? "Transcribing…" : "Start Recording";
   const pauseLabel = isRecordingPaused ? "Resume" : "Pause";
   const [speakerFilter, setSpeakerFilter] = useState<SpeakerFilter>("Needs review");
-  const [sessionNameDraft, setSessionNameDraft] = useState(currentSessionName);
 
   const speakerFilterCounts = useMemo(() => {
     const counts = speakerLines.reduce<Record<string, number>>((accumulator, line) => {
@@ -196,66 +179,9 @@ export function IntakeRail({
     }
   }, [availableSpeakerFilters, speakerFilter]);
 
-  useEffect(() => {
-    setSessionNameDraft(currentSessionName);
-  }, [currentSessionName, currentSessionId]);
-
   return (
     <section className="intakeRail">
       <div className="intakeBlock">
-        <div className="workspaceSessionHeader">
-          <button className="newEncounterButton" type="button" onClick={onCreateSession}>New Session</button>
-          <div className="fieldGroup">
-            <label className="microLabel" htmlFor="workspaceSession">Session</label>
-            <select
-              id="workspaceSession"
-              className="stitchSelect"
-              value={currentSessionId}
-              onChange={(e) => onSelectSession(e.target.value)}
-            >
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.name} · {formatRecordingTime(session.updatedAt)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="fieldGroup">
-            <label className="microLabel" htmlFor="sessionName">Session Name</label>
-            <div className="sessionRenameRow">
-              <input
-                id="sessionName"
-                className="stitchInput"
-                value={sessionNameDraft}
-                onChange={(e) => setSessionNameDraft(e.target.value)}
-                onBlur={() => onRenameSession(sessionNameDraft)}
-              />
-              <button className="sessionRenameButton" type="button" onClick={() => onRenameSession(sessionNameDraft)}>
-                Save
-              </button>
-            </div>
-            <div className="sessionAdminRow">
-              <button className="sessionAdminButton" type="button" onClick={onArchiveSession}>Archive</button>
-              <button className="sessionAdminButton danger" type="button" onClick={onDeleteSession}>Delete</button>
-            </div>
-          </div>
-          <div className="fieldGroup">
-            <label className="microLabel">Recent Sessions</label>
-            <div className="recentSessionsList">
-              {sessions.slice(0, 4).map((session) => (
-                <button
-                  key={session.id}
-                  type="button"
-                  className={`recentSessionButton${session.id === currentSessionId ? " active" : ""}`}
-                  onClick={() => onSelectSession(session.id)}
-                >
-                  <strong>{session.name}</strong>
-                  <span>{formatRecordingTime(session.updatedAt)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
         <h3 className="microHeading">Context</h3>
 
         <div className="fieldGroup">
@@ -272,20 +198,26 @@ export function IntakeRail({
           </select>
         </div>
 
-        <div className="fieldGroup">
-          <label className="microLabel" htmlFor="transcriptionLanguage">Spoken Language</label>
-          <select
-            id="transcriptionLanguage"
-            className="stitchSelect"
-            value={transcriptionLanguage}
-            onChange={(e) => onLanguageChange(e.target.value)}
-          >
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-            <option value="mi">Te Reo Māori</option>
-            <option value="tl">Filipino</option>
-            <option value="ko">한국어</option>
-          </select>
+        <div className="fieldGroup compactFieldGroup">
+          <label className="microLabel">Spoken Language</label>
+          <div className="languageChipRow">
+            {[
+              ["en", "EN"],
+              ["zh", "中文"],
+              ["mi", "Māori"],
+              ["tl", "Filipino"],
+              ["ko", "한국어"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`languageChip${transcriptionLanguage === value ? " active" : ""}`}
+                onClick={() => onLanguageChange(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="fieldGroup">

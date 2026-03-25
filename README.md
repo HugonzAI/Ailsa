@@ -21,7 +21,7 @@ Ailsa currently includes:
 - **browser recording** via `MediaRecorder`
 - **audio upload** fallback
 - **IndexedDB local persistence** for recordings
-- **Cloudflare D1-backed session persistence** for workspace state
+- **Cloudflare D1-backed consultation persistence** for workspace state
 - **interrupted recording recovery** for recordings left behind by refresh / interruption
 - **segmented long-recording transcription**
 - **spoken language control**
@@ -186,11 +186,11 @@ npm run deploy
 
 Current storage split:
 
-- **Cloudflare D1** → workspace sessions, draft state, structured output, review state
+- **Cloudflare D1** → single-consultation workspace state, draft state, structured output, review state
 - **IndexedDB** → local recordings / audio chunks / recoverable interrupted recordings
-- **localStorage** → local session cache / fast restore fallback
+- **localStorage** → local consultation cache / fast restore fallback
 
-This keeps large audio blobs local-first while making document workspace state cloud-persistent.
+This keeps large audio blobs local-first while making the single-consultation workspace cloud-persistent.
 
 ## Notes on transcription behavior
 

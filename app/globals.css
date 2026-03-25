@@ -60,6 +60,15 @@ button { border: 0; background: none; }
 }
 .intakeBlock { display:grid; gap:16px; }
 .workspaceSessionHeader { display:grid; gap:10px; }
+.sessionManagerOverlay {
+  position:fixed; inset:56px 0 0 0; background:rgba(15,23,42,0.16); z-index:55; display:flex; justify-content:flex-end;
+}
+.sessionManagerPanel {
+  width:min(360px, 100vw); height:calc(100vh - 56px); background:#fff; border-left:1px solid var(--line-soft); padding:18px 16px 24px; display:grid; align-content:start; gap:14px; overflow:auto;
+}
+.sessionManagerHeader { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.sessionManagerHeader h3 { margin:0; font-size:16px; color:var(--text); }
+.sessionManagerHeader p { margin:4px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
 .sessionRenameRow { display:grid; grid-template-columns: 1fr auto; gap:8px; }
 .recentSessionsList { display:grid; gap:8px; }
 .recentSessionButton {
@@ -77,6 +86,12 @@ button { border: 0; background: none; }
 }
 .sessionAdminButton.danger { background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
 .fieldGroup { display:grid; gap:6px; }
+.compactFieldGroup { gap:8px; }
+.languageChipRow { display:flex; gap:6px; flex-wrap:wrap; }
+.languageChip {
+  padding:7px 10px; border-radius:999px; border:1px solid rgba(203,213,225,0.55); background:#fff; color:var(--muted); font-size:11px; font-weight:700; cursor:pointer;
+}
+.languageChip.active { background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
 .newEncounterButton,.primaryDarkButton,.primarySidecarButton {
   width:100%; border-radius:12px; font-weight:700; cursor:pointer;
 }
@@ -346,4 +361,6 @@ button { border: 0; background: none; }
   .patientHeader,.evidenceFooter,.evidenceFooterLeft { display:grid; }
   .draftInner { padding: 24px 18px 88px; }
   .refinedTitle { font-size: 30px; }
+  .topBarLeft { gap:12px; }
+  .sessionManagerPanel { width:100vw; }
 }
