@@ -222,9 +222,12 @@ export function buildConsultantLetterPrompt(transcript: string) {
     '}',
     "Requirements:",
     "- This is a consultant-letter draft, not a ward note",
-    "- Allow fuller prose in presentingHistory and summary",
+    "- Use clear formal specialist-letter style with calm, efficient prose",
+    "- Allow fuller prose in presentingHistory and summary, but avoid fluffy or overly warm wording",
     "- Keep assessmentPlan structured by problem",
     "- Keep openingLine and closing optional; do not force them",
+    "- Avoid generic pleasantries like 'pleasant patient' unless explicitly stated",
+    "- Summary should read like a concise consultant impression, not a rehash of the whole history",
     "- Use evidenceSupport only as a separate conservative support layer, not as part of the letter body",
     "- citationLabel should stay generic unless clearly grounded elsewhere",
     "- If there is no explicit allergy information, leave allergies empty rather than writing none known",
@@ -265,7 +268,9 @@ export function buildDischargeSummaryPrompt(transcript: string) {
     "Requirements:",
     "- This is a discharge summary, not a ward note or consultant letter",
     "- Focus on admission course, discharge diagnoses, medication changes, follow-up, and pending items",
+    "- Use clear discharge-ready wording: concise, practical, and easy to scan",
     "- Keep dischargeStatus concise and patient-state oriented",
+    "- Prefer brief problem-oriented bullets or short sentences over explanatory paragraphs",
     "- If discharge advice or follow-up is not explicit, leave it blank",
     "- evidenceSupport stays separate from the discharge body and should be conservative or empty",
     "",
@@ -310,107 +315,63 @@ function formatAssessmentPlanItem(item: ConsultantAssessmentPlanItem, index: num
 
 export function renderStructuredOutput(output: StructuredOutput) {
   if (output.documentType === "cardiology_consultant_letter") {
-    return [
-      "Referral Context",
-      [output.referralContext.openingLine, output.referralContext.referrer, output.referralContext.reasonForReferral, output.referralContext.visitType]
-        .filter(Boolean)
-        .join("\n"),
-      "",
-      "Cardiac Risk Factors",
-      ...(output.cardiacRiskFactors.length ? output.cardiacRiskFactors.map((item) => `- ${item}`) : [""]),
-      "",
-      "Cardiac History",
-      ...(output.cardiacHistory.length ? output.cardiacHistory.map((item) => `- ${item}`) : [""]),
-      "",
-      "Other Medical History",
-      ...(output.otherMedicalHistory.length ? output.otherMedicalHistory.map((item) => `- ${item}`) : [""]),
-      "",
-      "Current Medications",
+    const medicationBlock = [
       formatMedicationGroup("Antithrombotics", output.currentMedications.antithrombotics),
       formatMedicationGroup("Antihypertensives", output.currentMedications.antihypertensives),
       formatMedicationGroup("Heart failure medications", output.currentMedications.heartFailureMedications),
       formatMedicationGroup("Lipid-lowering agents", output.currentMedications.lipidLoweringAgents),
       formatMedicationGroup("Other medications", output.currentMedications.otherMedications),
-      "",
-      "Allergies",
-      ...(output.allergies.length ? output.allergies.map((item) => `- ${item}`) : [""]),
-      "",
-      "Social History",
-      ...(output.socialHistory.length ? output.socialHistory.map((item) => `- ${item}`) : [""]),
-      "",
-      "Presenting History",
-      output.presentingHistory || "",
-      "",
-      "Physical Examination",
-      output.physicalExamination || "",
-      "",
-      "Investigations",
-      ...(output.investigations.length ? output.investigations.map((item) => `- ${item}`) : [""]),
-      "",
-      "Summary",
-      output.summary || "",
-      "",
-      "Assessment / Plan",
-      ...(output.assessmentPlan.length ? output.assessmentPlan.map(formatAssessmentPlanItem) : [""]),
-      "",
-      "Follow Up",
-      output.followUp || "",
-      "",
-      "Closing",
-      output.closing || "",
-      "",
-      "Evidence Support",
-      ...(output.evidenceSupport.length ? output.evidenceSupport.map((item) => `- ${formatEvidenceItem(item)}`) : [""]),
-      "",
-      "Evidence Limitations",
-      ...(output.evidenceLimitations.length ? output.evidenceLimitations.map((item) => `- ${item}`) : [""]),
     ]
-      .join("\n")
+      .filter((item) => !/:\s*$/.test(item))
+      .join("\n");
+
+    return [
+      [output.referralContext.openingLine, output.referralContext.referrer, output.referralContext.reasonForReferral, output.referralContext.visitType]
+        .filter(Boolean)
+        .join("\n"),
+      output.presentingHistory || "",
+      output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${item}`).join("\n")}` : "",
+      output.summary ? `Summary\n${output.summary}` : "",
+      output.assessmentPlan.length ? `Assessment / Plan\n${output.assessmentPlan.map(formatAssessmentPlanItem).join("\n\n")}` : "",
+      output.followUp ? `Follow Up\n${output.followUp}` : "",
+      [
+        output.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${output.cardiacRiskFactors.map((item) => `- ${item}`).join("\n")}` : "",
+        output.cardiacHistory.length ? `Cardiac History\n${output.cardiacHistory.map((item) => `- ${item}`).join("\n")}` : "",
+        output.otherMedicalHistory.length ? `Other Medical History\n${output.otherMedicalHistory.map((item) => `- ${item}`).join("\n")}` : "",
+        medicationBlock ? `Current Medications\n${medicationBlock}` : "",
+        output.allergies.length ? `Allergies\n${output.allergies.map((item) => `- ${item}`).join("\n")}` : "",
+        output.socialHistory.length ? `Social History\n${output.socialHistory.map((item) => `- ${item}`).join("\n")}` : "",
+        output.physicalExamination ? `Physical Examination\n${output.physicalExamination}` : "",
+        output.closing || "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    ]
+      .filter(Boolean)
+      .join("\n\n")
       .trim();
   }
 
   if (output.documentType === "cardiac_discharge_summary") {
     return [
-      "Patient Context",
-      formatPatientContext(output.patientContext),
-      "",
-      "Admission Course",
-      output.admissionCourse || "",
-      "",
-      "Key Investigations",
-      ...(output.keyInvestigations.length ? output.keyInvestigations.map((item) => `- ${item}`) : [""]),
-      "",
-      "Procedures",
-      ...(output.procedures.length ? output.procedures.map((item) => `- ${item}`) : [""]),
-      "",
-      "Discharge Diagnoses",
-      ...(output.dischargeDiagnoses.length ? output.dischargeDiagnoses.map((item) => `- ${item}`) : [""]),
-      "",
-      "Medication Changes",
-      ...(output.medicationChanges.length ? output.medicationChanges.map((item) => `- ${item}`) : [""]),
-      "",
-      "Discharge Status",
-      output.dischargeStatus || "",
-      "",
-      "Follow Up Plans",
-      ...(output.followUpPlans.length ? output.followUpPlans.map((item) => `- ${item}`) : [""]),
-      "",
-      "Discharge Instructions",
-      ...(output.dischargeInstructions.length ? output.dischargeInstructions.map((item) => `- ${item}`) : [""]),
-      "",
-      "Pending Results",
-      ...(output.pendingResults.length ? output.pendingResults.map((item) => `- ${item}`) : [""]),
-      "",
-      "Escalation Advice",
-      output.escalationAdvice || "",
-      "",
-      "Evidence Support",
-      ...(output.evidenceSupport.length ? output.evidenceSupport.map((item) => `- ${formatEvidenceItem(item)}`) : [""]),
-      "",
-      "Evidence Limitations",
-      ...(output.evidenceLimitations.length ? output.evidenceLimitations.map((item) => `- ${item}`) : [""]),
+      output.admissionCourse ? `Admission Course\n${output.admissionCourse}` : "",
+      output.dischargeDiagnoses.length ? `Discharge Diagnoses\n${output.dischargeDiagnoses.map((item) => `- ${item}`).join("\n")}` : "",
+      output.medicationChanges.length ? `Medication Changes\n${output.medicationChanges.map((item) => `- ${item}`).join("\n")}` : "",
+      output.dischargeStatus ? `Discharge Status\n${output.dischargeStatus}` : "",
+      output.followUpPlans.length ? `Follow Up Plans\n${output.followUpPlans.map((item) => `- ${item}`).join("\n")}` : "",
+      output.dischargeInstructions.length ? `Discharge Instructions\n${output.dischargeInstructions.map((item) => `- ${item}`).join("\n")}` : "",
+      [
+        formatPatientContext(output.patientContext) ? `Patient Context\n${formatPatientContext(output.patientContext)}` : "",
+        output.keyInvestigations.length ? `Key Investigations\n${output.keyInvestigations.map((item) => `- ${item}`).join("\n")}` : "",
+        output.procedures.length ? `Procedures\n${output.procedures.map((item) => `- ${item}`).join("\n")}` : "",
+        output.pendingResults.length ? `Pending Results\n${output.pendingResults.map((item) => `- ${item}`).join("\n")}` : "",
+        output.escalationAdvice ? `Return Advice\n${output.escalationAdvice}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     ]
-      .join("\n")
+      .filter(Boolean)
+      .join("\n\n")
       .trim();
   }
 
@@ -698,6 +659,31 @@ function dedupeProblemList(items: string[], seen: string[]) {
   });
 }
 
+function compressConsultantSentence(value: string) {
+  return stripTrailingPunctuation(
+    value
+      .replace(/\bI had the pleasure of seeing this patient today\.?/gi, "Seen today for cardiology review")
+      .replace(/\bThey are a pleasant individual\b/gi, "Patient")
+      .replace(/\bwho was referred for cardiac assessment\b/gi, "referred for cardiac assessment")
+      .replace(/\bReview of systems is otherwise non-contributory\.?/gi, "")
+      .replace(/\s{2,}/g, " "),
+  );
+}
+
+function compressDischargeSentence(value: string) {
+  return stripTrailingPunctuation(
+    value
+      .replace(/\bOver the admission\b/gi, "During admission")
+      .replace(/\bPlan on discharge is to\b/gi, "Discharge plan:")
+      .replace(/\bAdvise return for\b/gi, "Return if")
+      .replace(/\s{2,}/g, " "),
+  );
+}
+
+function compressStringArray(items: string[], formatter: (value: string) => string, limit = 6) {
+  return items.map((item) => formatter(item)).filter(Boolean).slice(0, limit);
+}
+
 export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, transcript: string): StructuredCardiacNote {
   const lower = transcript.toLowerCase();
   const hasExplicitSex = /\b(female|male|woman|man)\b/i.test(transcript);
@@ -773,16 +759,29 @@ export function sanitizeConsultantLetter(letter: StructuredConsultantLetter, tra
     ...letter,
     referralContext: {
       ...letter.referralContext,
-      referrer: hasReferrer ? letter.referralContext.referrer : "",
+      referrer: hasReferrer ? compressConsultantSentence(letter.referralContext.referrer) : "",
+      reasonForReferral: compressConsultantSentence(letter.referralContext.reasonForReferral),
+      visitType: compressConsultantSentence(letter.referralContext.visitType),
+      openingLine: compressConsultantSentence(letter.referralContext.openingLine),
     },
-    cardiacRiskFactors: letter.cardiacRiskFactors.filter(Boolean),
-    cardiacHistory: letter.cardiacHistory.filter(Boolean),
-    otherMedicalHistory: letter.otherMedicalHistory.filter(Boolean),
-    allergies: letter.allergies.filter(Boolean),
-    socialHistory: letter.socialHistory.filter(Boolean),
-    investigations: letter.investigations.filter(Boolean),
-    assessmentPlan: letter.assessmentPlan.filter((item) => item.problem || item.assessment || item.plan),
-    followUp: hasFollowUpSignal ? letter.followUp : "",
+    cardiacRiskFactors: compressStringArray(letter.cardiacRiskFactors.filter(Boolean), compressConsultantSentence),
+    cardiacHistory: compressStringArray(letter.cardiacHistory.filter(Boolean), compressConsultantSentence),
+    otherMedicalHistory: compressStringArray(letter.otherMedicalHistory.filter(Boolean), compressConsultantSentence),
+    allergies: compressStringArray(letter.allergies.filter(Boolean), compressConsultantSentence),
+    socialHistory: compressStringArray(letter.socialHistory.filter(Boolean), compressConsultantSentence),
+    presentingHistory: compressConsultantSentence(letter.presentingHistory),
+    physicalExamination: compressConsultantSentence(letter.physicalExamination),
+    investigations: compressStringArray(letter.investigations.filter(Boolean), compressConsultantSentence),
+    summary: compressConsultantSentence(letter.summary),
+    assessmentPlan: letter.assessmentPlan
+      .map((item) => ({
+        problem: compressConsultantSentence(item.problem),
+        assessment: compressConsultantSentence(item.assessment),
+        plan: compressConsultantSentence(item.plan),
+      }))
+      .filter((item) => item.problem || item.assessment || item.plan),
+    followUp: hasFollowUpSignal ? compressConsultantSentence(letter.followUp) : "",
+    closing: compressConsultantSentence(letter.closing),
     evidenceSupport,
     evidenceLimitations,
   };
@@ -803,17 +802,22 @@ export function sanitizeDischargeSummary(summary: StructuredDischargeSummary, tr
   return {
     ...summary,
     patientContext: {
-      explicitDemographics: hasExplicitSex ? summary.patientContext.explicitDemographics : "",
-      explicitAdmissionReason: hasExplicitAdmission ? summary.patientContext.explicitAdmissionReason : "",
-      explicitCardiacBackground: hasExplicitBackground ? summary.patientContext.explicitCardiacBackground : [],
+      explicitDemographics: hasExplicitSex ? compressDischargeSentence(summary.patientContext.explicitDemographics) : "",
+      explicitAdmissionReason: hasExplicitAdmission ? compressDischargeSentence(summary.patientContext.explicitAdmissionReason) : "",
+      explicitCardiacBackground: hasExplicitBackground
+        ? compressStringArray(summary.patientContext.explicitCardiacBackground, compressDischargeSentence)
+        : [],
     },
-    keyInvestigations: summary.keyInvestigations.filter(Boolean),
-    procedures: summary.procedures.filter(Boolean),
-    dischargeDiagnoses: summary.dischargeDiagnoses.filter(Boolean),
-    medicationChanges: summary.medicationChanges.filter(Boolean),
-    followUpPlans: summary.followUpPlans.filter(Boolean),
-    dischargeInstructions: summary.dischargeInstructions.filter(Boolean),
-    pendingResults: summary.pendingResults.filter(Boolean),
+    admissionCourse: compressDischargeSentence(summary.admissionCourse),
+    keyInvestigations: compressStringArray(summary.keyInvestigations.filter(Boolean), compressDischargeSentence),
+    procedures: compressStringArray(summary.procedures.filter(Boolean), compressDischargeSentence),
+    dischargeDiagnoses: compressStringArray(summary.dischargeDiagnoses.filter(Boolean), compressDischargeSentence),
+    medicationChanges: compressStringArray(summary.medicationChanges.filter(Boolean), compressDischargeSentence),
+    dischargeStatus: compressDischargeSentence(summary.dischargeStatus),
+    followUpPlans: compressStringArray(summary.followUpPlans.filter(Boolean), compressDischargeSentence),
+    dischargeInstructions: compressStringArray(summary.dischargeInstructions.filter(Boolean), compressDischargeSentence),
+    pendingResults: compressStringArray(summary.pendingResults.filter(Boolean), compressDischargeSentence),
+    escalationAdvice: compressDischargeSentence(summary.escalationAdvice),
     evidenceSupport,
     evidenceLimitations,
   };
