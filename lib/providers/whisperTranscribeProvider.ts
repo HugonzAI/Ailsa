@@ -1,7 +1,9 @@
 // Swap this class for MedGemmaProvider / LocalTranscribeProvider when deploying on-premise.
 
-import { getOpenAIApiKey } from "@/lib/openai";
+import { getOpenAIApiKey, getOpenAITranscribeModel } from "@/lib/openai";
 import type { TranscribeProvider } from "@/lib/providers/transcribeProvider";
+
+const MAX_TRANSCRIBE_BYTES = 25 * 1024 * 1024;
 
 function buildWhisperPrompt(language?: string) {
   if (language && language !== "en") {
@@ -29,13 +31,18 @@ export class WhisperTranscribeProvider implements TranscribeProvider {
       throw new Error("OPENAI_API_KEY is missing. Add it to .env.local or re-enable mock transcription.");
     }
 
+    if (audio.size > MAX_TRANSCRIBE_BYTES) {
+      throw new Error("Audio file exceeds the provider 25 MB upload limit. Use browser recording for segmented transcription, or upload a shorter clip.");
+    }
+
     const endpoint = language && language !== "en"
       ? "https://api.openai.com/v1/audio/translations"
       : "https://api.openai.com/v1/audio/transcriptions";
+    const model = getOpenAITranscribeModel();
 
     const form = new FormData();
     form.append("file", audio, filename);
-    form.append("model", "whisper-1");
+    form.append("model", model);
     form.append("response_format", "text");
     form.append("temperature", "0");
     form.append("prompt", buildWhisperPrompt(language));
@@ -57,6 +64,11 @@ export class WhisperTranscribeProvider implements TranscribeProvider {
 
     if (!response.ok) {
       console.error("Whisper transcription failed", text);
+
+      if (response.status === 413 || text.includes("Maximum content size limit")) {
+        throw new Error("Audio file exceeds the provider 25 MB upload limit. Use browser recording for segmented transcription, or upload a shorter clip.");
+      }
+
       throw new Error("Transcription failed.");
     }
 

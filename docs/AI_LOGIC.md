@@ -108,7 +108,9 @@ Current strategy:
 ## Current provider setup
 
 - Anthropic model via direct HTTP fetch (not SDK)
-- OpenAI Whisper via direct HTTP fetch (not SDK)
+- OpenAI transcription model via direct HTTP fetch (not SDK)
+- default transcription model: `whisper-1`
+- transcription model is env-overridable via `OPENAI_TRANSCRIBE_MODEL`
 - Cloudflare Workers runtime
 - Cloudflare D1 for cloud-backed workspace session persistence
 

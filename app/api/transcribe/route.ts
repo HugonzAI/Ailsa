@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { WhisperTranscribeProvider } from "@/lib/providers/whisperTranscribeProvider";
 import { TranscriptPostProcessor } from "@/lib/providers/transcriptPostProcessor";
 import { TranscriptNormalizer } from "@/lib/providers/transcriptNormalizer";
+import { flagSuspiciousSpeakerLines } from "@/lib/providers/transcriptArtifactDetector";
 import type { TranscriptionResponse } from "@/lib/types";
 
 function buildMockTranscript(filename?: string) {
@@ -51,10 +52,12 @@ export async function POST(request: Request) {
     const speakerAware = await postProcessor.enhance(transcript);
     const normalizer = new TranscriptNormalizer();
     const normalizedTranscript = normalizer.normalize(speakerAware.transcript);
-    const normalizedSpeakerLines = speakerAware.speakerLines.map((line) => ({
-      ...line,
-      text: normalizer.normalize(line.text),
-    }));
+    const normalizedSpeakerLines = flagSuspiciousSpeakerLines(
+      speakerAware.speakerLines.map((line) => ({
+        ...line,
+        text: normalizer.normalize(line.text),
+      })),
+    );
 
     const result: TranscriptionResponse = {
       transcript: normalizedTranscript,
@@ -69,6 +72,10 @@ export async function POST(request: Request) {
 
     if (error instanceof Error && error.message.includes("OPENAI_API_KEY is missing")) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (error instanceof Error && error.message.includes("25 MB upload limit")) {
+      return NextResponse.json({ error: error.message }, { status: 413 });
     }
 
     return NextResponse.json({ error: "Transcription failed." }, { status: 502 });

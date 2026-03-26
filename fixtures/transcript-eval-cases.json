@@ -1,0 +1,46 @@
+[
+  {
+    "name": "generic-clinician-questioning-should-stay-mostly-generic",
+    "transcript": "Hi, Ms Alexander. Hi. Hi, my name is Brittany and I'm a medical student working with Dr Parrott today. It's nice to meet you. So she has sent me in just to ask you some questions and do a brief physical exam, then I will step back out and talk to her. Is that okay? Yeah, that's fine. Great. So what brings you in today? I've been having pretty bad neck pain. How long has this been going on? Probably about two days. Did anything happen a couple days ago out of the ordinary? Well, I was in a small car accident.",
+    "expect": {
+      "minLines": 4,
+      "maxNurseLabels": 0,
+      "maxRoleLabels": 2,
+      "minGenericLabels": 2,
+      "mustIncludeAnyLabels": ["Doctor", "Speaker 1", "Speaker 2"]
+    }
+  },
+  {
+    "name": "patient-first-person-should-be-recognisable-or-generic",
+    "transcript": "What brings you in today? I've had worsening shortness of breath for three days. I feel more breathless lying flat and my chest feels tight when I walk. No fevers. Okay, and any chest pain at rest? No, no chest pain at rest.",
+    "expect": {
+      "minLines": 3,
+      "maxNurseLabels": 0,
+      "maxRoleLabels": 3,
+      "minGenericLabels": 1,
+      "mustIncludeAnyLabels": ["Patient", "Speaker 1", "Speaker 2"]
+    }
+  },
+  {
+    "name": "explicit-nursing-handover-can-use-nurse",
+    "transcript": "This is nursing handover. Overnight telemetry showed brief AF with rates up to 140, now back in sinus rhythm. Blood pressure stayed above 100 systolic, oxygen saturations 96 percent on room air, urine output was good, and weight is down one kilo from yesterday. Thanks, we'll continue telemetry and repeat U and E this afternoon.",
+    "expect": {
+      "minLines": 2,
+      "maxNurseLabels": 2,
+      "minRoleLabels": 1,
+      "mustIncludeAnyLabels": ["Nurse", "Speaker 1"]
+    }
+  },
+  {
+    "name": "family-should-not-appear-without-explicit-support",
+    "transcript": "Hello. Hello. Can you tell me what happened overnight? He was more short of breath and didn't sleep well. Okay, any chest pain? No chest pain.",
+    "expect": {
+      "minLines": 3,
+      "maxFamilyLabels": 0,
+      "maxNurseLabels": 0,
+      "maxRoleLabels": 2,
+      "minGenericLabels": 1,
+      "mustIncludeAnyLabels": ["Speaker 1", "Speaker 2", "Unknown"]
+    }
+  }
+]

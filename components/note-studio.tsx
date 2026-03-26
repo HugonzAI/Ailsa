@@ -22,6 +22,7 @@ import {
   recoverInterruptedRecordings,
   saveStoredRecording,
   type StoredRecording,
+  type StoredTranscriptionSegment,
 } from "@/components/note-studio/recording-store";
 import {
   buildSmartSessionName,
@@ -57,11 +58,34 @@ function makeStoredFilename(mimeType: string) {
   return `ailsa-recording-${Date.now()}.${getRecordedFileExtension(mimeType)}`;
 }
 
-function chunkRecordingParts(parts: Blob[], maxPartsPerSegment = 20) {
-  const segments: Blob[][] = [];
+const MAX_UPLOAD_AUDIO_BYTES = 25 * 1024 * 1024;
+const MAX_SEGMENT_AUDIO_BYTES = 12 * 1024 * 1024;
+const MAX_PARTS_PER_SEGMENT = 30;
+const MEDIA_RECORDER_TIMESLICE_MS = 4000;
 
-  for (let index = 0; index < parts.length; index += maxPartsPerSegment) {
-    segments.push(parts.slice(index, index + maxPartsPerSegment));
+function chunkRecordingParts(parts: Blob[]) {
+  if (!parts.length) return [];
+
+  const segments: Blob[][] = [];
+  let currentSegment: Blob[] = [];
+  let currentBytes = 0;
+
+  for (const part of parts) {
+    const wouldExceedBytes = currentSegment.length > 0 && currentBytes + part.size > MAX_SEGMENT_AUDIO_BYTES;
+    const wouldExceedPartCount = currentSegment.length >= MAX_PARTS_PER_SEGMENT;
+
+    if (wouldExceedBytes || wouldExceedPartCount) {
+      segments.push(currentSegment);
+      currentSegment = [];
+      currentBytes = 0;
+    }
+
+    currentSegment.push(part);
+    currentBytes += part.size;
+  }
+
+  if (currentSegment.length) {
+    segments.push(currentSegment);
   }
 
   return segments;
@@ -124,6 +148,7 @@ export function NoteStudio() {
   const [status, setStatus] = useState("Idle");
   const [loading, setLoading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [transcribeProgress, setTranscribeProgress] = useState<{ current: number; total: number; failed?: boolean } | null>(null);
   const [transcriptionLanguage, setTranscriptionLanguage] = useState("en");
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
@@ -579,27 +604,50 @@ export function NoteStudio() {
 
     const audioBlob = new Blob(stored.chunks, { type: stored.mimeType || "audio/webm" });
     const fullFile = new File([audioBlob], stored.filename, { type: audioBlob.type || stored.mimeType || "audio/webm" });
-    const segments = chunkRecordingParts(stored.chunks, 20);
+    const segments = chunkRecordingParts(stored.chunks);
 
     setCurrentRecordingId(recordingId);
     setSelectedFile(fullFile);
     setTranscribing(true);
+    setTranscribeProgress(null);
     setStatus(`Transcribing ${stored.filename}...`);
+
+    const canResumeFailedRun =
+      stored.status === "failed" &&
+      stored.transcriptionProgress?.failedSegment &&
+      stored.transcriptionProgress.totalSegments === segments.length &&
+      Array.isArray(stored.transcriptionSegments) &&
+      stored.transcriptionSegments.length >= (stored.transcriptionProgress.completedSegments || 0);
+
+    const initialSegmentResults: StoredTranscriptionSegment[] = canResumeFailedRun
+      ? [...(stored.transcriptionSegments || [])].sort((left, right) => left.segmentIndex - right.segmentIndex)
+      : [];
+    const resumeFromIndex = canResumeFailedRun ? stored.transcriptionProgress!.completedSegments : 0;
+    const initialTranscriptParts = initialSegmentResults.map((segment) => segment.transcript.trim()).filter(Boolean);
+    const initialSpeakerLines = initialSegmentResults.flatMap((segment) => segment.speakerLines || []);
 
     await saveStoredRecording({
       ...stored,
       status: "transcribing",
+      transcript: initialTranscriptParts.join("\n\n").trim() || stored.transcript,
+      speakerLines: initialSpeakerLines.length ? initialSpeakerLines : stored.speakerLines,
+      transcriptionSegments: initialSegmentResults,
+      transcriptionProgress: { completedSegments: resumeFromIndex, totalSegments: segments.length },
       updatedAt: new Date().toISOString(),
       error: undefined,
     });
     await refreshRecordings();
 
+    let activeSegmentIndex = 0;
+    let transcriptParts: string[] = [...initialTranscriptParts];
+    let aggregatedSpeakerLines: TranscriptSpeakerLine[] = [...initialSpeakerLines];
+    let segmentResults: StoredTranscriptionSegment[] = [...initialSegmentResults];
+
     try {
-      let transcriptParts: string[] = [];
-      let aggregatedSpeakerLines: TranscriptSpeakerLine[] = [];
       let mode = "provider";
 
-      for (let index = 0; index < segments.length; index += 1) {
+      for (let index = resumeFromIndex; index < segments.length; index += 1) {
+        activeSegmentIndex = index + 1;
         const segmentChunks = segments[index];
         const segmentBlob = new Blob(segmentChunks, { type: stored.mimeType || "audio/webm" });
         const segmentFile = new File(
@@ -610,6 +658,7 @@ export function NoteStudio() {
           { type: segmentBlob.type || stored.mimeType || "audio/webm" },
         );
 
+        setTranscribeProgress({ current: index + 1, total: segments.length });
         setStatus(
           segments.length === 1
             ? `Transcribing ${stored.filename}...`
@@ -619,8 +668,15 @@ export function NoteStudio() {
         const data = await transcribeAudioSegment(segmentFile, transcriptionLanguage);
         mode = data.mode;
         const cleaned = data.transcript.trim();
-        if (cleaned) transcriptParts.push(cleaned);
-        if (data.speakerLines?.length) aggregatedSpeakerLines.push(...data.speakerLines);
+        const normalizedSegmentLines = (data.speakerLines || []).map((line) => ({ ...line, reviewed: line.reviewed ?? false }));
+
+        segmentResults = [
+          ...segmentResults.filter((segment) => segment.segmentIndex !== index),
+          { segmentIndex: index, transcript: cleaned, speakerLines: normalizedSegmentLines },
+        ].sort((left, right) => left.segmentIndex - right.segmentIndex);
+
+        transcriptParts = segmentResults.map((segment) => segment.transcript.trim()).filter(Boolean);
+        aggregatedSpeakerLines = segmentResults.flatMap((segment) => segment.speakerLines || []);
 
         const partialTranscript = transcriptParts.join("\n\n").trim();
         await saveStoredRecording({
@@ -628,6 +684,8 @@ export function NoteStudio() {
           status: "transcribing",
           transcript: partialTranscript,
           speakerLines: aggregatedSpeakerLines,
+          transcriptionSegments: segmentResults,
+          transcriptionProgress: { completedSegments: index + 1, totalSegments: segments.length },
           updatedAt: new Date().toISOString(),
           error: undefined,
         });
@@ -640,6 +698,7 @@ export function NoteStudio() {
       setSpeakerLines(normalizedSpeakerLines);
       setTranscriptConfirmed(false);
       setTranscriptFromAudio(true);
+      setTranscribeProgress(null);
       setStatus(`Transcript ready · ${mode} mode${segments.length > 1 ? ` · ${segments.length} segments` : ""}`);
 
       await saveStoredRecording({
@@ -648,19 +707,30 @@ export function NoteStudio() {
         interrupted: false,
         transcript: combinedTranscript,
         speakerLines: normalizedSpeakerLines,
+        transcriptionSegments: segmentResults,
+        transcriptionProgress: { completedSegments: segments.length, totalSegments: segments.length },
         updatedAt: new Date().toISOString(),
         error: undefined,
       });
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "Transcription failed";
-      setStatus("Failed to transcribe audio");
+      const failedSegment = activeSegmentIndex > 0 ? activeSegmentIndex : 1;
+      const hasMultipleSegments = segments.length > 1;
+      setTranscribeProgress(hasMultipleSegments ? { current: failedSegment, total: segments.length, failed: true } : null);
+      setStatus(hasMultipleSegments ? `Failed to transcribe segment ${failedSegment} of ${segments.length}` : "Failed to transcribe audio");
       await saveStoredRecording({
         ...stored,
         status: "failed",
         interrupted: false,
+        transcript: transcriptParts.join("\n\n").trim() || stored.transcript,
+        speakerLines: aggregatedSpeakerLines.length ? aggregatedSpeakerLines : stored.speakerLines,
+        transcriptionSegments: segmentResults,
+        transcriptionProgress: hasMultipleSegments
+          ? { completedSegments: Math.max(0, failedSegment - 1), totalSegments: segments.length, failedSegment }
+          : { completedSegments: 0, totalSegments: 1, failedSegment: 1 },
         updatedAt: new Date().toISOString(),
-        error: message,
+        error: hasMultipleSegments ? `Segment ${failedSegment}/${segments.length}: ${message}` : message,
       });
     } finally {
       setTranscribing(false);
@@ -685,6 +755,8 @@ export function NoteStudio() {
       interrupted: statusValue === "recording" ? existing?.interrupted : false,
       chunks,
       transcript: existing?.transcript,
+      transcriptionSegments: existing?.transcriptionSegments,
+      transcriptionProgress: existing?.transcriptionProgress,
       error: existing?.error,
       ...extra,
     };
@@ -795,7 +867,7 @@ export function NoteStudio() {
         }
       }, { once: true });
 
-      recorder.start(2000);
+      recorder.start(MEDIA_RECORDER_TIMESLICE_MS);
       setIsRecording(true);
       setIsRecordingPaused(false);
       if (!existingConversation?.chunks?.length) {
@@ -869,7 +941,11 @@ export function NoteStudio() {
 
   function handleSpeakerLineTextChange(index: number, text: string) {
     setSpeakerLines((current) => {
-      const next = current.map((line, lineIndex) => (lineIndex === index ? { ...line, text, reviewed: false } : line));
+      const next = current.map((line, lineIndex) => (
+        lineIndex === index
+          ? { ...line, text, reviewed: false, suspicious: false, suspiciousReason: undefined }
+          : line
+      ));
       persistSpeakerLineEdits(next);
       setTranscript(next.map((item) => `${item.speaker}: ${item.text}`).join("\n"));
       return next;
@@ -1055,6 +1131,7 @@ export function NoteStudio() {
           transcriptStats={transcriptStats}
           transcriptionLanguage={transcriptionLanguage}
           transcribing={transcribing}
+          transcribeProgress={transcribeProgress}
           isRecording={isRecording}
           isRecordingPaused={isRecordingPaused}
           recordingSeconds={recordingSeconds}
@@ -1084,6 +1161,13 @@ export function NoteStudio() {
             setTranscriptConfirmed(false);
             setTranscriptFromAudio(false);
             if (file) {
+              if (file.size > MAX_UPLOAD_AUDIO_BYTES) {
+                setCurrentRecordingId(null);
+                setSelectedFile(null);
+                setStatus("Audio file is too large for single-file provider upload (>25 MB). Use browser recording for segmented transcription, or upload a shorter clip.");
+                return;
+              }
+
               const uploaded: StoredRecording = {
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),

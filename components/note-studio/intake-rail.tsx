@@ -9,6 +9,7 @@ type IntakeRailProps = {
   transcriptStats: { words: number; chars: number };
   transcriptionLanguage: string;
   transcribing: boolean;
+  transcribeProgress: { current: number; total: number; failed?: boolean } | null;
   isRecording: boolean;
   isRecordingPaused: boolean;
   recordingSeconds: number;
@@ -84,11 +85,24 @@ function getConversationLabel(recording: StoredRecording) {
   return `Conversation audio · ${formatRecordingTime(recording.createdAt)}`;
 }
 
-type SpeakerFilter = "All" | "Needs review" | "Unchecked" | TranscriptSpeaker;
+function getTranscriptionProgressLabel(recording: StoredRecording) {
+  const progress = recording.transcriptionProgress;
+  if (!progress || progress.totalSegments <= 1) return null;
+  if (progress.failedSegment) {
+    return `segment ${progress.failedSegment}/${progress.totalSegments} failed · ${progress.completedSegments} completed`;
+  }
+  if (recording.status === "transcribed") {
+    return `${progress.totalSegments}/${progress.totalSegments} segments complete`;
+  }
+  return `${progress.completedSegments}/${progress.totalSegments} segments complete`;
+}
+
+type SpeakerFilter = "All" | "Needs review" | "Suspicious" | "Unchecked" | TranscriptSpeaker;
 
 const speakerFilterOrder: SpeakerFilter[] = [
   "All",
   "Needs review",
+  "Suspicious",
   "Unchecked",
   "Doctor",
   "Patient",
@@ -100,8 +114,8 @@ const speakerFilterOrder: SpeakerFilter[] = [
   "Speaker 3",
 ];
 
-function needsReviewSpeaker(speaker: TranscriptSpeaker) {
-  return speaker === "Unknown" || speaker.startsWith("Speaker ");
+function needsReviewLine(line: TranscriptSpeakerLine) {
+  return line.speaker === "Unknown" || line.speaker.startsWith("Speaker ") || Boolean(line.suspicious);
 }
 
 export function IntakeRail({
@@ -110,6 +124,7 @@ export function IntakeRail({
   transcriptStats,
   transcriptionLanguage,
   transcribing,
+  transcribeProgress,
   isRecording,
   isRecordingPaused,
   recordingSeconds,
@@ -151,8 +166,9 @@ export function IntakeRail({
       return accumulator;
     }, {});
 
-    counts["Needs review"] = speakerLines.filter((line) => needsReviewSpeaker(line.speaker)).length;
+    counts["Needs review"] = speakerLines.filter((line) => needsReviewLine(line)).length;
     counts.Unchecked = speakerLines.filter((line) => !line.reviewed).length;
+    counts["Suspicious"] = speakerLines.filter((line) => line.suspicious).length;
 
     return counts;
   }, [speakerLines]);
@@ -162,7 +178,8 @@ export function IntakeRail({
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => {
         if (speakerFilter === "All") return true;
-        if (speakerFilter === "Needs review") return needsReviewSpeaker(line.speaker);
+        if (speakerFilter === "Needs review") return needsReviewLine(line);
+        if (speakerFilter === "Suspicious") return Boolean(line.suspicious);
         if (speakerFilter === "Unchecked") return !line.reviewed;
         return line.speaker === speakerFilter;
       });
@@ -191,6 +208,13 @@ export function IntakeRail({
                 ? `${getRecordingStatusLabel(recordings[0])} · ${getRecordingStorageSummary(recordings[0])}`
                 : "Start recording to capture this conversation. Pause, resume, and interruptions stay inside the same encounter."}
             </span>
+            {transcribeProgress ? (
+              <div className={`transcribeProgressBadge${transcribeProgress.failed ? " failed" : ""}`}>
+                {transcribeProgress.failed
+                  ? `Segment ${transcribeProgress.current} of ${transcribeProgress.total} failed`
+                  : `Transcribing segment ${transcribeProgress.current} of ${transcribeProgress.total}`}
+              </div>
+            ) : null}
           </div>
         </div>
         <button className={`recordingButton${isRecording ? " isRecording" : ""}${isRecordingPaused ? " isPaused" : ""}`} type="button" onClick={onRecordToggle} disabled={transcribing}>
@@ -260,6 +284,7 @@ export function IntakeRail({
                 accept="audio/*"
                 onChange={(e) => onAudioChange(e.target.files?.[0] ?? null)}
               />
+              <div className="uploadHint">Single-file uploads are best kept under 25 MB. For longer consultations, use browser recording so Ailsa can transcribe in segments.</div>
             </div>
 
             {recordings.length ? (
@@ -278,6 +303,7 @@ export function IntakeRail({
                         </div>
                         <span>{getRecordingStatusLabel(recording)} · {formatRecordingTime(recording.createdAt)}</span>
                         <span className="recordingStorageMeta">{getRecordingStorageSummary(recording)}</span>
+                        {getTranscriptionProgressLabel(recording) ? <span className="recordingSegmentMeta">{getTranscriptionProgressLabel(recording)}</span> : null}
                         {recording.error ? <em className="recordingItemHint">{recording.error}</em> : null}
                       </div>
                       <div className="recordingItemActions">
@@ -288,7 +314,13 @@ export function IntakeRail({
                         ) : null}
                         {recording.status === "failed" || recording.status === "saved" ? (
                           <button type="button" className={`recordingMiniButton${recording.interrupted ? " recover" : ""}`} onClick={() => onRetryRecording(recording.id)}>
-                            {recording.interrupted ? "Continue transcription" : recording.status === "saved" ? "Transcribe" : "Retry"}
+                            {recording.interrupted
+                              ? "Continue transcription"
+                              : recording.status === "saved"
+                                ? "Transcribe"
+                                : recording.transcriptionProgress?.failedSegment
+                                  ? "Retry failed segment"
+                                  : "Retry"}
                           </button>
                         ) : null}
                         {recording.transcript ? (
@@ -323,6 +355,7 @@ export function IntakeRail({
             <span>{transcriptStats.chars} chars</span>
             {speakerLines.length ? <span>{speakerLines.length} speaker lines</span> : null}
             {speakerLines.length ? <span>{speakerFilterCounts.Unchecked || 0} unchecked</span> : null}
+            {speakerFilterCounts.Suspicious ? <span>{speakerFilterCounts.Suspicious} suspicious</span> : null}
           </div>
           {showTranscriptBanner ? (
             <div className="transcriptConfirmBanner compactTranscriptBanner">
@@ -370,7 +403,8 @@ export function IntakeRail({
               <div className="speakerReviewSummary">
                 <span>{speakerFilterCounts.Unchecked || 0} unchecked</span>
                 <span>{speakerLines.filter((line) => line.reviewed).length} reviewed</span>
-                {speakerFilterCounts["Needs review"] ? <span>{speakerFilterCounts["Needs review"]} uncertain</span> : null}
+                {speakerFilterCounts["Needs review"] ? <span>{speakerFilterCounts["Needs review"]} needs review</span> : null}
+                {speakerFilterCounts.Suspicious ? <span>{speakerFilterCounts.Suspicious} suspicious</span> : null}
               </div>
               <div className="speakerFilterChips compactSpeakerFilterChips">
                 {availableSpeakerFilters.map((speaker) => {
@@ -379,7 +413,7 @@ export function IntakeRail({
                     <button
                       key={speaker}
                       type="button"
-                      className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}${speaker === "Needs review" ? " needsReview" : ""}`}
+                      className={`speakerFilterChip${speakerFilter === speaker ? " active" : ""}${speaker === "Needs review" ? " needsReview" : ""}${speaker === "Suspicious" ? " suspicious" : ""}`}
                       onClick={() => setSpeakerFilter(speaker)}
                     >
                       <span>{speaker}</span>
@@ -390,13 +424,13 @@ export function IntakeRail({
               </div>
               {speakerFilterCounts["Needs review"] ? (
                 <div className="speakerReviewHint">
-                  Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first. Generic labels are normal here — only promote to Doctor / Patient / Nurse when clearly supported.
+                  Prioritise <strong>Unknown</strong>, <strong>Speaker n</strong>, and any <strong>suspicious</strong> lines first. Generic labels are normal here — only promote to Doctor / Patient / Nurse when clearly supported.
                 </div>
               ) : null}
               <div className="speakerLinesList compactSpeakerLinesList">
                 {filteredSpeakerLines.length ? (
                   filteredSpeakerLines.map(({ line, index }) => (
-                    <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}${line.reviewed ? " reviewed" : ""}`}>
+                    <div key={`${line.speaker}-${index}-${line.text.slice(0, 12)}`} className={`speakerLineCard speaker-${line.speaker.toLowerCase().replace(/\s+/g, "-")}${line.reviewed ? " reviewed" : ""}${line.suspicious ? " suspicious" : ""}`}>
                       <div className="speakerLineHeader">
                         <select
                           className="speakerLabelSelect"
@@ -420,6 +454,12 @@ export function IntakeRail({
                           {line.reviewed ? "Reviewed" : "Mark checked"}
                         </button>
                       </div>
+                      {line.suspicious ? (
+                        <div className="speakerLineAlert">
+                          <strong>Suspicious transcript segment</strong>
+                          <span>{line.suspiciousReason || "Possible ASR artifact — check against audio if important."}</span>
+                        </div>
+                      ) : null}
                       <textarea
                         className="speakerLineTextEditor"
                         value={line.text}

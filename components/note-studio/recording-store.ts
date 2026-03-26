@@ -2,6 +2,12 @@ export type StoredRecordingStatus = "recording" | "paused" | "saved" | "transcri
 
 import type { TranscriptSpeakerLine } from "@/lib/types";
 
+export type StoredTranscriptionSegment = {
+  segmentIndex: number;
+  transcript: string;
+  speakerLines?: TranscriptSpeakerLine[];
+};
+
 export type StoredRecording = {
   id: string;
   createdAt: string;
@@ -15,6 +21,12 @@ export type StoredRecording = {
   chunks: Blob[];
   transcript?: string;
   speakerLines?: TranscriptSpeakerLine[];
+  transcriptionSegments?: StoredTranscriptionSegment[];
+  transcriptionProgress?: {
+    completedSegments: number;
+    totalSegments: number;
+    failedSegment?: number;
+  };
   error?: string;
 };
 

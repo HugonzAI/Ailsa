@@ -129,6 +129,7 @@ npm run typecheck
 npm run build
 npm run regression
 npm run style-eval
+npm run transcript-eval
 npm run preview
 npm run deploy
 ```
@@ -167,6 +168,25 @@ Fixtures live in:
 Runner lives in:
 - `scripts/run-style-eval.mjs`
 
+### Transcript eval
+
+`npm run transcript-eval` is a lightweight speaker-layer audit for conservative transcript post-processing.
+
+It checks for things like:
+- overuse of role labels
+- whether generic labels remain available and common
+- whether `Nurse` / `Family` are being used too eagerly
+- whether speaker segmentation is still present
+
+Fixtures live in:
+- `fixtures/transcript-eval-cases.json`
+
+Runner lives in:
+- `scripts/run-transcript-eval.mjs`
+
+It calls the transcript post-processing model directly, so it needs:
+- `OPENAI_API_KEY`
+
 ## Environment
 
 Copy `.env.example` to `.env.local` for local development.
@@ -179,6 +199,7 @@ Copy `.env.example` to `.env.local` for local development.
 - `MOCK_TRANSCRIPTION=0`
 - `MOCK_NOTE_GENERATION=0`
 - `ANTHROPIC_MODEL=claude-sonnet-4-6`
+- optional: `OPENAI_TRANSCRIBE_MODEL=whisper-1`
 
 If mock flags are enabled, the app still works in scaffold/demo mode.
 
@@ -217,6 +238,8 @@ Current storage split:
 This keeps large audio blobs local-first while making the single-consultation workspace cloud-persistent.
 
 ## Notes on transcription behavior
+
+For real provider transcription, single-file uploads are still bounded by the provider upload limit (currently 25 MB). Browser recording is safer for longer conversations because Ailsa can segment those recordings before transcription.
 
 Ailsa deliberately keeps transcription conservative:
 

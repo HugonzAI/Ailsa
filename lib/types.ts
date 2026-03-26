@@ -132,6 +132,8 @@ export type TranscriptSpeakerLine = {
   speaker: TranscriptSpeaker;
   text: string;
   reviewed?: boolean;
+  suspicious?: boolean;
+  suspiciousReason?: string;
 };
 
 export type TranscriptionResponse = {
