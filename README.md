@@ -116,6 +116,7 @@ Current direction by document family:
 - `docs/STITCH_UI_BRIEF.md`
 - `docs/CODING_FRIENDLY_DOCUMENTATION.md`
 - `docs/PUBLIC_REFERENCE_NOTES.md`
+- `docs/AILSA_QUALITY_RUBRIC.md`
 
 ## Scripts
 

@@ -164,6 +164,9 @@ Ailsa now uses two complementary local checks:
 - `npm run regression` -> routing / anti-hallucination / schema stability
 - `npm run style-eval` -> readability / anti-beautification / section order / coding-friendly documentation proxies
 
+The broader product-level quality framing is documented in:
+- `docs/AILSA_QUALITY_RUBRIC.md`
+
 Coding-friendly proxies currently include checks for:
 - diagnosis explicitness
 - medication-change explicitness
