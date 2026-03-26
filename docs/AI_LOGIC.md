@@ -28,6 +28,7 @@ We moved away from pure free-text output because we need:
 - editable `planToday`
 - future discharge summary mode
 - easier anti-hallucination guardrails
+- more coding-friendly documentation structure
 
 ## Current schema
 
@@ -55,6 +56,7 @@ Important design choices:
 Why these exist:
 - Heidi-style workflow value is not only in note drafting but also in converting the round into actions, handover tasks, and next review signals
 - Ailsa should learn from that workflow layer without mixing large evidence lectures into the core note body
+- explicit problems, actions, and next-review fields are also more coding-friendly than burying everything inside narrative prose
 
 ### evidence support fields
 - `evidenceSupport[]`
@@ -156,9 +158,25 @@ Purpose:
 - make future prompt iteration less subjective
 - assert a small set of section-level expectations so regressions are not limited to documentType checks alone
 
+## Current documentation-quality evaluation
+
+Ailsa now uses two complementary local checks:
+- `npm run regression` -> routing / anti-hallucination / schema stability
+- `npm run style-eval` -> readability / anti-beautification / section order / coding-friendly documentation proxies
+
+Coding-friendly proxies currently include checks for:
+- diagnosis explicitness
+- medication-change explicitness
+- follow-up explicitness
+- pending-item visibility / restraint
+- consultant problem-oriented structure
+
+These are documentation-quality checks, not final coding validation.
+
 ## Next recommended steps
 
 1. Add stronger regression fixtures for anti-hallucination edge cases
-2. Add editable problem list UI
-3. Expand regression assertions into more content-aware checks where safe
-4. Add real grounding / retrieval for evidence support when ready
+2. Add more difficult style-eval fixtures with messy, sparse, and gap-heavy transcripts
+3. Add editable problem list UI
+4. Expand content-aware evaluation carefully without encouraging over-normalisation
+5. Add real grounding / retrieval for evidence support when ready

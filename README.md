@@ -114,6 +114,8 @@ Current direction by document family:
 - `docs/CONSULTANT_LETTER_SCHEMA.md`
 - `docs/EVIDENCE_SUPPORT.md`
 - `docs/STITCH_UI_BRIEF.md`
+- `docs/CODING_FRIENDLY_DOCUMENTATION.md`
+- `docs/PUBLIC_REFERENCE_NOTES.md`
 
 ## Scripts
 
@@ -154,6 +156,7 @@ It is a lightweight rule-based scorer for:
 - anti-beautification penalties
 - line-length / scanability checks
 - basic plan-density checks
+- coding-friendly documentation proxies (diagnosis / med-change / follow-up explicitness)
 
 Fixtures live in:
 - `fixtures/style-eval-cases.json`

@@ -7,6 +7,8 @@
     "expect": {
       "mustIncludeAny": ["ADHF", "HFrEF", "U&E", "Cr", "JVP", "wt", "FB", "SR"],
       "mustAvoid": ["favourable response", "doing well", "clinically stable", "pleasant patient"],
+      "mustIncludeSections": ["Overnight", "Assessment", "Plan"],
+      "sectionOrder": ["Overnight", "Assessment", "Plan"],
       "maxLineLength": 120,
       "minDistinctPlanItems": 2
     }
@@ -19,6 +21,8 @@
     "expect": {
       "mustIncludeAny": ["CP", "ACS", "trops", "ECG", "Telemetry"],
       "mustAvoid": ["favourable response", "doing well", "clinically stable", "reassuringly"],
+      "mustIncludeSections": ["Overnight", "Assessment", "Plan"],
+      "sectionOrder": ["Overnight", "Assessment", "Plan"],
       "maxLineLength": 120,
       "minDistinctPlanItems": 2
     }
@@ -31,8 +35,88 @@
     "expect": {
       "mustIncludeAny": ["AF", "RVR", "SR", "Telemetry", "anticoagulation"],
       "mustAvoid": ["favourable response", "doing well", "clinically stable", "reassuringly"],
+      "mustIncludeSections": ["Overnight", "Assessment", "Plan"],
+      "sectionOrder": ["Overnight", "Assessment", "Plan"],
       "maxLineLength": 120,
       "minDistinctPlanItems": 2
+    }
+  },
+  {
+    "name": "consultant-letter-readability",
+    "encounterType": "Cardiology consultant letter",
+    "targetDocumentType": "cardiology_consultant_letter",
+    "transcript": "Consultant: Referred for assessment of exertional chest pressure for the past three weeks. Symptoms improve with rest. Associated dyspnoea and intermittent left arm heaviness. ECG and blood work were arranged today, with stress testing to follow. Overall this is concerning for possible angina. Follow up after stress test results.",
+    "expect": {
+      "mustIncludeAny": ["angina", "ECG", "stress"],
+      "mustAvoid": ["pleasant patient", "doing well", "favourable response", "reassuringly"],
+      "mustIncludeSections": ["Investigations", "Summary", "Assessment / Plan", "Follow-up"],
+      "sectionOrder": ["Investigations", "Summary", "Assessment / Plan", "Follow-up"],
+      "minConsultantProblemCount": 1,
+      "minFollowUpCount": 1,
+      "maxLineLength": 130,
+      "minDistinctPlanItems": 0
+    }
+  },
+  {
+    "name": "discharge-summary-readability",
+    "encounterType": "Discharge",
+    "targetDocumentType": "cardiac_discharge_summary",
+    "transcript": "Doctor: Admitted with decompensated HFrEF and fluid overload. Improved with IV diuresis. Echo showed EF around 35 percent. Discharge diagnoses are decompensated HFrEF and brief paroxysmal atrial fibrillation. Continue furosemide and bisoprolol, arrange cardiology follow up, and repeat renal function and electrolytes after discharge. Return if worsening breathlessness, chest pain, palpitations, or recurrent fluid overload symptoms.",
+    "expect": {
+      "mustIncludeAny": ["HFrEF", "follow-up", "renal", "electrolytes"],
+      "mustAvoid": ["pleasant patient", "doing well", "favourable response", "clinically stable"],
+      "mustIncludeSections": ["Admission Course", "Discharge Diagnoses", "Medication Changes", "Follow-up"],
+      "sectionOrder": ["Admission Course", "Discharge Diagnoses", "Medication Changes", "Follow-up"],
+      "minDiagnosisCount": 1,
+      "minMedicationChangeCount": 1,
+      "minFollowUpCount": 1,
+      "maxLineLength": 125,
+      "minDistinctPlanItems": 0
+    }
+  },
+  {
+    "name": "sparse-ward-round-conservative",
+    "encounterType": "Ward round",
+    "targetDocumentType": "cardiac_inpatient_note",
+    "transcript": "Doctor: Slept okay. No chest pain. Mild breathlessness on walking to the toilet. Blood pressure okay. Creatinine stable. Continue current treatment and review tomorrow.",
+    "expect": {
+      "mustIncludeAny": ["CP", "Cr"],
+      "mustAvoid": ["favourable response", "doing well", "clinically stable", "euvolaemic", "ACS", "ADHF"],
+      "mustIncludeSections": ["Overnight", "Assessment", "Plan"],
+      "sectionOrder": ["Overnight", "Assessment", "Plan"],
+      "maxLineLength": 120,
+      "minDistinctPlanItems": 1
+    }
+  },
+  {
+    "name": "messy-multi-speaker-ward-round",
+    "encounterType": "Ward round",
+    "targetDocumentType": "cardiac_inpatient_note",
+    "transcript": "Nurse: Overnight no acute events, telemetry mostly sinus. Patient: Still a bit short of breath getting up but no chest pain. Doctor: BP okay, sats 95 on room air, creatinine stable. Nurse: Weight down about one kilo from yesterday. Doctor: Keep current diuretic for today, repeat U and E tomorrow, review again tomorrow.",
+    "expect": {
+      "mustIncludeAny": ["SR", "Sats", "Cr", "wt", "U&E"],
+      "mustAvoid": ["favourable response", "doing well", "clinically stable", "ACS", "angiography", "euvolaemic"],
+      "mustIncludeSections": ["Overnight", "Assessment", "Plan"],
+      "sectionOrder": ["Overnight", "Assessment", "Plan"],
+      "maxLineLength": 120,
+      "minDistinctPlanItems": 2
+    }
+  },
+  {
+    "name": "discharge-with-gaps-conservative",
+    "encounterType": "Discharge",
+    "targetDocumentType": "cardiac_discharge_summary",
+    "transcript": "Doctor: Admitted with chest pain. Symptoms settled. Serial troponins were negative and ECG showed no dynamic change. Discharge diagnosis is non-cardiac chest pain. GP follow up advised. Return if recurrent chest pain.",
+    "expect": {
+      "mustIncludeAny": ["Discharge Diagnoses", "Follow-up", "Return"],
+      "mustAvoid": ["pleasant patient", "doing well", "favourable response", "angiography", "medication changes made", "pending results"],
+      "mustIncludeSections": ["Admission Course", "Discharge Diagnoses", "Follow-up"],
+      "sectionOrder": ["Admission Course", "Discharge Diagnoses", "Follow-up"],
+      "minDiagnosisCount": 1,
+      "minFollowUpCount": 1,
+      "maxPendingCount": 0,
+      "maxLineLength": 125,
+      "minDistinctPlanItems": 0
     }
   }
 ]
