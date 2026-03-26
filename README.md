@@ -118,6 +118,7 @@ Current direction by document family:
 - `docs/PUBLIC_REFERENCE_NOTES.md`
 - `docs/AILSA_QUALITY_RUBRIC.md`
 - `docs/COMPLEXITY_AUDIT.md`
+- `docs/SPEAKER_LAYER_AUDIT.md`
 
 ## Scripts
 

@@ -15,18 +15,17 @@ function getTranscriptPostprocessModel() {
 function buildPrompt(transcript: string) {
   return [
     "You are post-processing a clinical audio transcript for a NZ cardiology documentation tool.",
-    "Your job is ONLY to segment by speaker and assign conservative role labels.",
+    "Your job is ONLY to segment by speaker and assign conservative labels.",
+    "Default to generic labels such as Speaker 1 / Speaker 2 / Speaker 3 unless the role is very clear from the words themselves.",
     "Do not summarize, rewrite, beautify, explain, or add details that were not present.",
     "Keep the wording source-faithful and conservative.",
     "Output must stay in English.",
     "If a role is uncertain, use Unknown or Speaker 1 / Speaker 2 / Speaker 3 rather than guessing.",
-    "Prefer Doctor, Patient, Nurse only when strongly supported by the wording.",
-    "Questioning, counselling, plan statements, and ordering language often indicate Doctor, but only if the wording clearly supports that.",
-    "First-person symptom reporting often indicates Patient, but only if clearly supported by the wording.",
-    "Observation handover language, telemetry/obs/fluid-balance reporting often indicates Nurse, but only if clearly supported by the wording.",
+    "Only use Doctor, Patient, Nurse, or Family when the wording is strongly and explicitly supportive.",
+    "Do not infer Nurse from ordinary clinician questioning alone.",
     "Keep speaker continuity stable. Avoid unnecessary speaker changes for consecutive lines that sound like the same person continuing.",
     "Do not invent vital signs, diagnoses, medications, plans, or missing context.",
-    "Return JSON only in the shape: { \"lines\": [{ \"speaker\": \"Doctor\", \"text\": \"...\" }] }",
+    "Return JSON only in the shape: { \"lines\": [{ \"speaker\": \"Speaker 1\", \"text\": \"...\" }] }",
     "Transcript:",
     transcript,
   ].join("\n\n");
@@ -49,17 +48,20 @@ function inferRoleFromText(text: string, currentSpeaker: SpeakerLabel): SpeakerL
 
   const normalized = text.toLowerCase();
 
+  const explicitDoctorCues = [
+    /\bi(?:'m| am) (?:a )?(?:doctor|dr|medical student|registrar|house officer)\b/,
+    /\bworking with dr\.?\b/,
+  ];
+
   const doctorCues = [
     /\bwhat brings you in\b/,
     /\bany chest pain\b/,
     /\bany shortness of breath\b/,
     /\bcontinue\b.*\b(furosemide|metoprolol|amiodarone|apixaban)\b/,
-    /\bplan\b/,
+    /\bcheck\b.*\b(ecg|troponins?|echo|u&e|labs?)\b/,
+    /\breview\b.*\b(tomorrow|later|today)\b/,
     /\bwe'?ll\b/,
     /\blet'?s\b/,
-    /\bcheck\b.*\b(ecg|troponins?|echo|u&e|labs?)\b/,
-    /\bdischarge\b/,
-    /\breview\b.*\b(tomorrow|later|today)\b/,
   ];
 
   const patientCues = [
@@ -67,37 +69,31 @@ function inferRoleFromText(text: string, currentSpeaker: SpeakerLabel): SpeakerL
     /\bi'?ve been\b/,
     /\bi feel\b/,
     /\bi am\b/,
+    /\bi'?m\b/,
     /\bmy chest\b/,
+    /\bmy neck\b/,
     /\bi'?m short of breath\b/,
     /\bi still feel\b/,
     /\bno chest pain\b/,
     /\bno shortness of breath\b/,
   ];
 
-  const nurseCues = [
+  const explicitNurseCues = [
+    /\bi(?:'m| am) (?:the )?nurse\b/,
+    /\bthis is nursing handover\b/,
     /\bnursing staff\b/,
-    /\btelemetry showed\b/,
-    /\bobs\b/,
-    /\bfluid balance\b/,
-    /\burine output\b/,
-    /\bweight is down\b/,
-    /\bblood pressure\b.*\bheart rate\b/,
-    /\bnoted overnight\b/,
   ];
 
-  const scores = [
-    { speaker: "Doctor" as SpeakerLabel, score: scoreMatches(normalized, doctorCues) },
-    { speaker: "Patient" as SpeakerLabel, score: scoreMatches(normalized, patientCues) },
-    { speaker: "Nurse" as SpeakerLabel, score: scoreMatches(normalized, nurseCues) },
-  ].sort((a, b) => b.score - a.score);
+  if (scoreMatches(normalized, explicitDoctorCues) >= 1) return "Doctor";
+  if (scoreMatches(normalized, explicitNurseCues) >= 1) return "Nurse";
 
-  const best = scores[0];
-  const second = scores[1];
+  const doctorScore = scoreMatches(normalized, doctorCues);
+  const patientScore = scoreMatches(normalized, patientCues);
 
-  if (!best || best.score < 2) return currentSpeaker;
-  if (second && best.score === second.score) return currentSpeaker;
+  if (patientScore >= 2 && patientScore > doctorScore) return "Patient";
+  if (doctorScore >= 3 && doctorScore > patientScore + 1) return "Doctor";
 
-  return best.speaker;
+  return currentSpeaker;
 }
 
 function smoothSpeakerLines(lines: SpeakerLine[]) {
@@ -164,7 +160,7 @@ export class TranscriptPostProcessor {
             {
               role: "system",
               content:
-                "You only restructure transcripts into conservative speaker-labelled English lines. Never add facts. If uncertain, keep labels generic.",
+                "You only restructure transcripts into conservative speaker-labelled English lines. Default to generic speaker labels. Never add facts. If uncertain, keep labels generic.",
             },
             {
               role: "user",

@@ -357,7 +357,7 @@ export function IntakeRail({
             <summary className="secondaryInputSummary">Speaker review</summary>
             <div className="secondaryInputBody">
               <div className="speakerReviewHeader">
-                <label className="microLabel">Speaker-aware Transcript</label>
+                <label className="microLabel">Speaker segments</label>
                 <div className="speakerReviewActions">
                   <button className="speakerReviewButton confirm" type="button" onClick={onConfirmTranscript}>
                     Confirm transcript
@@ -390,7 +390,7 @@ export function IntakeRail({
               </div>
               {speakerFilterCounts["Needs review"] ? (
                 <div className="speakerReviewHint">
-                  Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first — they are most likely to need clinician correction.
+                  Prioritise <strong>Unknown</strong> and <strong>Speaker n</strong> lines first. Generic labels are normal here — only promote to Doctor / Patient / Nurse when clearly supported.
                 </div>
               ) : null}
               <div className="speakerLinesList compactSpeakerLinesList">
@@ -403,14 +403,14 @@ export function IntakeRail({
                           value={line.speaker}
                           onChange={(e) => onSpeakerLineChange(index, e.target.value as TranscriptSpeakerLine["speaker"])}
                         >
-                          <option value="Doctor">Doctor</option>
-                          <option value="Patient">Patient</option>
-                          <option value="Nurse">Nurse</option>
-                          <option value="Family">Family</option>
                           <option value="Unknown">Unknown</option>
                           <option value="Speaker 1">Speaker 1</option>
                           <option value="Speaker 2">Speaker 2</option>
                           <option value="Speaker 3">Speaker 3</option>
+                          <option value="Doctor">Doctor</option>
+                          <option value="Patient">Patient</option>
+                          <option value="Nurse">Nurse</option>
+                          <option value="Family">Family</option>
                         </select>
                         <button
                           type="button"
