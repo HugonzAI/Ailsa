@@ -248,7 +248,7 @@ export function IntakeRail({
         </div>
 
         <details className="secondaryInputSection">
-          <summary className="secondaryInputSummary">More audio options</summary>
+          <summary className="secondaryInputSummary">Audio archive</summary>
 
           <div className="secondaryInputBody">
             <div className="fieldGroup">
@@ -322,6 +322,7 @@ export function IntakeRail({
             <span>{transcriptStats.words} words</span>
             <span>{transcriptStats.chars} chars</span>
             {speakerLines.length ? <span>{speakerLines.length} speaker lines</span> : null}
+            {speakerLines.length ? <span>{speakerFilterCounts.Unchecked || 0} unchecked</span> : null}
           </div>
           {showTranscriptBanner ? (
             <div className="transcriptConfirmBanner compactTranscriptBanner">
@@ -335,8 +336,8 @@ export function IntakeRail({
           ) : null}
         </div>
 
-        <details className="secondaryInputSection" open={!transcript || transcriptNeedsConfirmation}>
-          <summary className="secondaryInputSummary">Transcript editor</summary>
+        <details className="secondaryInputSection" open={!transcript}>
+          <summary className="secondaryInputSummary">Transcript details</summary>
           <div className="secondaryInputBody transcriptEditorBody">
             <div className="fieldGroup">
               <label className="microLabel" htmlFor="transcript">Manual Transcript</label>
@@ -352,17 +353,17 @@ export function IntakeRail({
         </details>
 
         {speakerLines.length ? (
-          <details className="secondaryInputSection speakerReviewSection" open={transcriptNeedsConfirmation}>
-            <summary className="secondaryInputSummary">Speaker-aware review</summary>
+          <details className="secondaryInputSection speakerReviewSection" open={(speakerFilterCounts["Needs review"] || 0) > 0}>
+            <summary className="secondaryInputSummary">Speaker review</summary>
             <div className="secondaryInputBody">
               <div className="speakerReviewHeader">
                 <label className="microLabel">Speaker-aware Transcript</label>
                 <div className="speakerReviewActions">
                   <button className="speakerReviewButton confirm" type="button" onClick={onConfirmTranscript}>
-                    Mark reviewed
+                    Confirm transcript
                   </button>
                   <button className="speakerReviewButton reset" type="button" onClick={onResetTranscriptReview}>
-                    Reset
+                    Reset review
                   </button>
                 </div>
               </div>

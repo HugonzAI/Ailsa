@@ -109,7 +109,7 @@ export function DraftWorkspace({
 
         {hasStructuredContent ? (
           <div className="docStack">
-            <Section title="Generated Draft Text">
+            <Section title="Primary Draft">
               {editableOutput ? (
                 <textarea className="stitchTextarea large outputEditor" value={output} onChange={(e) => onOutputChange(e.target.value)} rows={10} />
               ) : (
@@ -118,78 +118,75 @@ export function DraftWorkspace({
             </Section>
 
             {structured.documentType === "cardiology_consultant_letter" ? (
-              <>
-                <Section title="Referral Context">{[structured.referralContext.openingLine, structured.referralContext.referrer, structured.referralContext.reasonForReferral, structured.referralContext.visitType].filter(Boolean).join("\n") || "—"}</Section>
-                <Section title="Presenting History">{structured.presentingHistory || "—"}</Section>
-                <Section title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Summary">{structured.summary || "—"}</Section>
-                <Section title="Assessment & Management Plan">{structured.assessmentPlan.length ? structured.assessmentPlan.map((item, index) => `#${index + 1} ${item.problem}\nAssessment: ${item.assessment}\nPlan: ${item.plan}`).join("\n\n") : "—"}</Section>
-                <Section title="Follow-up">{structured.followUp || "—"}</Section>
-
-                {(structured.cardiacRiskFactors.length || structured.cardiacHistory.length || structured.otherMedicalHistory.length || consultantMedicationText || structured.allergies.length || structured.socialHistory.length || structured.physicalExamination || structured.closing) ? (
-                  <Section title="Supporting Detail" variant="secondary" collapsible={true} defaultOpen={false}>
-                    {[
-                      structured.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${structured.cardiacRiskFactors.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.cardiacHistory.length ? `Cardiac History\n${structured.cardiacHistory.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.otherMedicalHistory.length ? `Other Medical History\n${structured.otherMedicalHistory.map((item) => `• ${item}`).join("\n")}` : "",
-                      consultantMedicationText ? `Current Medications\n${consultantMedicationText}` : "",
-                      structured.allergies.length ? `Allergies\n${structured.allergies.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.socialHistory.length ? `Social History\n${structured.socialHistory.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.physicalExamination ? `Physical Examination\n${structured.physicalExamination}` : "",
-                      structured.closing ? `Closing\n${structured.closing}` : "",
-                    ].filter(Boolean).join("\n\n")}
-                  </Section>
-                ) : null}
-              </>
+              <Section title="Structured breakdown" variant="secondary" collapsible={true} defaultOpen={false}>
+                {[
+                  `Referral Context\n${[structured.referralContext.openingLine, structured.referralContext.referrer, structured.referralContext.reasonForReferral, structured.referralContext.visitType].filter(Boolean).join("\n") || "—"}`,
+                  `Presenting History\n${structured.presentingHistory || "—"}`,
+                  `Investigations\n${structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  `Summary\n${structured.summary || "—"}`,
+                  `Assessment & Management Plan\n${structured.assessmentPlan.length ? structured.assessmentPlan.map((item, index) => `#${index + 1} ${item.problem}\nAssessment: ${item.assessment}\nPlan: ${item.plan}`).join("\n\n") : "—"}`,
+                  `Follow-up\n${structured.followUp || "—"}`,
+                  (structured.cardiacRiskFactors.length || structured.cardiacHistory.length || structured.otherMedicalHistory.length || consultantMedicationText || structured.allergies.length || structured.socialHistory.length || structured.physicalExamination || structured.closing)
+                    ? [
+                        structured.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${structured.cardiacRiskFactors.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.cardiacHistory.length ? `Cardiac History\n${structured.cardiacHistory.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.otherMedicalHistory.length ? `Other Medical History\n${structured.otherMedicalHistory.map((item) => `• ${item}`).join("\n")}` : "",
+                        consultantMedicationText ? `Current Medications\n${consultantMedicationText}` : "",
+                        structured.allergies.length ? `Allergies\n${structured.allergies.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.socialHistory.length ? `Social History\n${structured.socialHistory.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.physicalExamination ? `Physical Examination\n${structured.physicalExamination}` : "",
+                        structured.closing ? `Closing\n${structured.closing}` : "",
+                      ].filter(Boolean).join("\n\n")
+                    : "",
+                ].filter(Boolean).join("\n\n")}
+              </Section>
             ) : structured.documentType === "cardiac_discharge_summary" ? (
-              <>
-                <Section title="Admission Course">{structured.admissionCourse || "—"}</Section>
-                <Section title="Discharge Diagnoses">{structured.dischargeDiagnoses.length ? structured.dischargeDiagnoses.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Medication Changes">{structured.medicationChanges.length ? structured.medicationChanges.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Discharge Status">{structured.dischargeStatus || "—"}</Section>
-                <Section title="Follow-up">{structured.followUpPlans.length ? structured.followUpPlans.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Discharge Instructions">{structured.dischargeInstructions.length ? structured.dischargeInstructions.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-
-                {(patientContextText || structured.keyInvestigations.length || structured.procedures.length || structured.pendingResults.length || structured.escalationAdvice) ? (
-                  <Section title="Supporting Detail" variant="secondary" collapsible={true} defaultOpen={false}>
-                    {[
-                      patientContextText ? `Patient Context\n${patientContextText}` : "",
-                      structured.keyInvestigations.length ? `Key Investigations\n${structured.keyInvestigations.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.procedures.length ? `Procedures\n${structured.procedures.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.pendingResults.length ? `Pending Results\n${structured.pendingResults.map((item) => `• ${item}`).join("\n")}` : "",
-                      structured.escalationAdvice ? `Return Advice\n${structured.escalationAdvice}` : "",
-                    ].filter(Boolean).join("\n\n")}
-                  </Section>
-                ) : null}
-              </>
+              <Section title="Structured breakdown" variant="secondary" collapsible={true} defaultOpen={false}>
+                {[
+                  `Admission Course\n${structured.admissionCourse || "—"}`,
+                  `Discharge Diagnoses\n${structured.dischargeDiagnoses.length ? structured.dischargeDiagnoses.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  `Medication Changes\n${structured.medicationChanges.length ? structured.medicationChanges.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  `Discharge Status\n${structured.dischargeStatus || "—"}`,
+                  `Follow-up\n${structured.followUpPlans.length ? structured.followUpPlans.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  `Discharge Instructions\n${structured.dischargeInstructions.length ? structured.dischargeInstructions.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  (patientContextText || structured.keyInvestigations.length || structured.procedures.length || structured.pendingResults.length || structured.escalationAdvice)
+                    ? [
+                        patientContextText ? `Patient Context\n${patientContextText}` : "",
+                        structured.keyInvestigations.length ? `Key Investigations\n${structured.keyInvestigations.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.procedures.length ? `Procedures\n${structured.procedures.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.pendingResults.length ? `Pending Results\n${structured.pendingResults.map((item) => `• ${item}`).join("\n")}` : "",
+                        structured.escalationAdvice ? `Return Advice\n${structured.escalationAdvice}` : "",
+                      ].filter(Boolean).join("\n\n")
+                    : "",
+                ].filter(Boolean).join("\n\n")}
+              </Section>
             ) : (
-              <>
-                <Section title="Overnight">{structured.overnightEvents || "—"}</Section>
-                <Section title="Sx">{structured.symptoms || "—"}</Section>
-                <Section title="Obs">{structured.observations || "—"}</Section>
-                <Section title="Exam">{structured.examination || "—"}</Section>
-                <Section title="Ix">{structured.keyInvestigations || "—"}</Section>
-                <Section title="Assessment">{structured.assessment || "—"}</Section>
-                <Section title="Problems">{structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-                <Section title="Plan">{structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}</Section>
-
-                {(patientContextText || structured.dischargeConsiderations || structured.tasksAllocated.length || structured.actionSummary.length || structured.nextReview || structured.escalationsSafetyConcerns) ? (
-                  <Section title="Handover / Context" variant="secondary" collapsible={true} defaultOpen={false}>
-                    {[
-                      patientContextText ? `Patient Context\n${patientContextText}` : "",
-                      structured.dischargeConsiderations ? `Discharge Considerations\n${structured.dischargeConsiderations}` : "",
-                      structured.tasksAllocated.length
-                        ? `Tasks Allocated\n${structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n")}`
-                        : "",
-                      structured.actionSummary.length
-                        ? `Action Summary\n${structured.actionSummary.map((item) => `• ${item}`).join("\n")}`
-                        : "",
-                      structured.nextReview ? `Next Review\n${structured.nextReview}` : "",
-                      structured.escalationsSafetyConcerns ? `Escalations / Safety\n${structured.escalationsSafetyConcerns}` : "",
-                    ].filter(Boolean).join("\n\n")}
-                  </Section>
-                ) : null}
-              </>
+              <Section title="Structured breakdown" variant="secondary" collapsible={true} defaultOpen={false}>
+                {[
+                  `Overnight\n${structured.overnightEvents || "—"}`,
+                  `Sx\n${structured.symptoms || "—"}`,
+                  `Obs\n${structured.observations || "—"}`,
+                  `Exam\n${structured.examination || "—"}`,
+                  `Ix\n${structured.keyInvestigations || "—"}`,
+                  `Assessment\n${structured.assessment || "—"}`,
+                  `Problems\n${structured.activeProblems.length ? structured.activeProblems.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  `Plan\n${structured.planToday.length ? structured.planToday.map((item) => `• ${item}`).join("\n") : "—"}`,
+                  (patientContextText || structured.dischargeConsiderations || structured.tasksAllocated.length || structured.actionSummary.length || structured.nextReview || structured.escalationsSafetyConcerns)
+                    ? [
+                        patientContextText ? `Patient Context\n${patientContextText}` : "",
+                        structured.dischargeConsiderations ? `Discharge Considerations\n${structured.dischargeConsiderations}` : "",
+                        structured.tasksAllocated.length
+                          ? `Tasks Allocated\n${structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n")}`
+                          : "",
+                        structured.actionSummary.length
+                          ? `Action Summary\n${structured.actionSummary.map((item) => `• ${item}`).join("\n")}`
+                          : "",
+                        structured.nextReview ? `Next Review\n${structured.nextReview}` : "",
+                        structured.escalationsSafetyConcerns ? `Escalations / Safety\n${structured.escalationsSafetyConcerns}` : "",
+                      ].filter(Boolean).join("\n\n")
+                    : "",
+                ].filter(Boolean).join("\n\n")}
+              </Section>
             )}
 
             {(showEvidence && structured.evidenceSupport.length > 0) || (showEvidence && structured.evidenceLimitations.length > 0) ? (
@@ -210,12 +207,13 @@ export function DraftWorkspace({
         )}
 
         <footer className="evidenceFooter stickyEvidenceFooter">
-          <div className="evidenceFooterLeft">
-            <span className="evidenceFooterLabel">Evidence Support</span>
-            <div className="evidenceChips">
-              <span className="evidenceChip primary">Guideline-aware</span>
-              <span className="evidenceChip">Visible {showEvidence ? "On" : "Off"}</span>
-              <span className="evidenceChip">Limitations {structured.evidenceLimitations.length}</span>
+          <div className="evidenceFooterLeft subduedSupportFooter">
+            <span className="evidenceFooterLabel">Support Layer</span>
+            <div className="evidenceChips compactEvidenceChips">
+              <span className="evidenceChip">Evidence {showEvidence ? "Visible" : "Hidden"}</span>
+              {(structured.evidenceSupport.length > 0 || structured.evidenceLimitations.length > 0) ? (
+                <span className="evidenceChip">Support items {structured.evidenceSupport.length + structured.evidenceLimitations.length}</span>
+              ) : null}
             </div>
           </div>
           <div className="footerActions">

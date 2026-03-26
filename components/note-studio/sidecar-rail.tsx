@@ -12,24 +12,22 @@ type SidecarRailProps = {
 export function SidecarRail({ structured, reviewStatus, onFinalize, onResetDemo }: SidecarRailProps) {
   return (
     <aside className="sidecarRail">
-      <h3 className="microHeading sidecarHeading">Operational Sidecar</h3>
+      <h3 className="microHeading sidecarHeading">Secondary Panel</h3>
 
       {structured.documentType === "cardiology_consultant_letter" ? (
         <>
-          <SidecarBlock title="Investigations">{structured.investigations.length ? structured.investigations.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
-          <SidecarBlock title="Follow-up">{structured.followUp || "—"}</SidecarBlock>
+          {structured.followUp ? <SidecarBlock title="Follow-up">{structured.followUp}</SidecarBlock> : null}
         </>
       ) : structured.documentType === "cardiac_discharge_summary" ? (
         <>
-          <SidecarBlock title="Pending Results">{structured.pendingResults.length ? structured.pendingResults.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
-          <SidecarBlock title="Escalation Advice" danger>{structured.escalationAdvice || "—"}</SidecarBlock>
+          {structured.pendingResults.length ? <SidecarBlock title="Pending Results">{structured.pendingResults.map((item) => `• ${item}`).join("\n")}</SidecarBlock> : null}
+          {structured.escalationAdvice ? <SidecarBlock title="Return Advice" danger>{structured.escalationAdvice}</SidecarBlock> : null}
         </>
       ) : (
         <>
-          <SidecarBlock title="Active Risks" danger>{structured.escalationsSafetyConcerns || "No active safety concerns recorded."}</SidecarBlock>
-          <SidecarBlock title="Pending Tasks">{structured.tasksAllocated.length ? structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n") : "—"}</SidecarBlock>
-          <SidecarBlock title="Continuity">{structured.nextReview || "—"}</SidecarBlock>
-          <SidecarBlock title="Action Summary">{structured.actionSummary.length ? structured.actionSummary.map((item) => `• ${item}`).join("\n") : "—"}</SidecarBlock>
+          {structured.escalationsSafetyConcerns ? <SidecarBlock title="Active Risks" danger>{structured.escalationsSafetyConcerns}</SidecarBlock> : null}
+          {structured.tasksAllocated.length ? <SidecarBlock title="Pending Tasks">{structured.tasksAllocated.map((item) => `• ${[item.task, item.owner, item.timing, item.urgency].filter(Boolean).join(" — ")}`).join("\n")}</SidecarBlock> : null}
+          {structured.nextReview ? <SidecarBlock title="Next Review">{structured.nextReview}</SidecarBlock> : null}
         </>
       )}
 

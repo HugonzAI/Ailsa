@@ -117,6 +117,7 @@ Current direction by document family:
 - `docs/CODING_FRIENDLY_DOCUMENTATION.md`
 - `docs/PUBLIC_REFERENCE_NOTES.md`
 - `docs/AILSA_QUALITY_RUBRIC.md`
+- `docs/COMPLEXITY_AUDIT.md`
 
 ## Scripts
 

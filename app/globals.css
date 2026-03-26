@@ -168,10 +168,10 @@ button { border: 0; background: none; }
 .compactSelect { padding:10px 12px; font-size:13px; border-radius:12px; }
 .compactLanguageChipRow { gap:5px; }
 .secondaryInputSection {
-  border:1px solid rgba(203,213,225,0.45); border-radius:14px; background:#fff; overflow:hidden;
+  border:1px solid rgba(203,213,225,0.4); border-radius:14px; background:#fff; overflow:hidden;
 }
 .secondaryInputSummary {
-  list-style:none; cursor:pointer; padding:12px 14px; font-size:12px; font-weight:700; color:var(--muted); display:flex; align-items:center; justify-content:space-between;
+  list-style:none; cursor:pointer; padding:11px 13px; font-size:11px; font-weight:700; color:var(--muted); display:flex; align-items:center; justify-content:space-between; text-transform:uppercase; letter-spacing:0.08em;
 }
 .secondaryInputSummary::-webkit-details-marker { display:none; }
 .secondaryInputSummary::after { content:"▾"; color:var(--muted-2); }
@@ -180,6 +180,7 @@ button { border: 0; background: none; }
 .transcriptEditorBody { padding-top:2px; }
 .compactTranscriptEditor { min-height:160px; }
 .speakerReviewSection { background:#fcfdff; }
+.speakerReviewSection .speakerReviewHeader { margin-top:2px; }
 .encounterSummaryCard strong { font-size:12px; color:var(--text); }
 .encounterSummaryCard span { font-size:11px; color:var(--muted); }
 .conversationPlayback { width:100%; }
@@ -363,32 +364,34 @@ button { border: 0; background: none; }
   margin-top:20px; padding-top:16px; border-top:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; gap:12px;
 }
 .stickyEvidenceFooter {
-  position:sticky; bottom:0; left:0; right:0; margin-top:0; padding:12px 0; background:rgba(255,255,255,0.92); backdrop-filter: blur(10px);
+  position:sticky; bottom:0; left:0; right:0; margin-top:0; padding:10px 0; background:rgba(255,255,255,0.88); backdrop-filter: blur(8px);
 }
 .evidenceFooterLeft { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
-.evidenceFooterLabel { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); }
+.subduedSupportFooter { gap:10px; }
+.evidenceFooterLabel { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted-2); }
 .evidenceChips { display:flex; gap:8px; flex-wrap:wrap; }
+.compactEvidenceChips { gap:6px; }
 .evidenceChip {
-  padding:6px 10px; border-radius:8px; background:var(--surface-2); color:var(--muted); font-size:10px; font-weight:700;
+  padding:5px 8px; border-radius:999px; background:var(--surface-2); color:var(--muted); font-size:10px; font-weight:700;
 }
 .evidenceChip.primary { background:#dbeafe; color:#1d4ed8; }
 .footerActions { display:flex; gap:8px; }
 .secondaryAction { width:auto; min-width:96px; }
 
 .sidecarRail {
-  width:320px; flex-shrink:0; padding:20px; background:var(--surface); border-left:1px solid rgba(203,213,225,0.35);
-  display:flex; flex-direction:column; gap:24px; overflow-y:auto;
+  width:288px; flex-shrink:0; padding:18px 16px; background:var(--surface); border-left:1px solid rgba(203,213,225,0.35);
+  display:flex; flex-direction:column; gap:16px; overflow-y:auto;
 }
 .sidecarBlock {
-  padding:14px; border-radius:14px; background:#fff; border-left:4px solid #cbd5e1;
+  padding:12px; border-radius:12px; background:#fff; border-left:3px solid #cbd5e1;
 }
 .sidecarBlock.danger { border-left-color: #ca8a04; background:#fff7ed; }
 .sidecarTitle {
-  margin:0 0 8px; font-size:12px; font-family:"Public Sans", Inter, sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted);
+  margin:0 0 6px; font-size:11px; font-family:"Public Sans", Inter, sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted);
 }
-.sidecarBody { white-space:pre-wrap; font-size:12px; line-height:1.6; color:#475569; }
+.sidecarBody { white-space:pre-wrap; font-size:12px; line-height:1.55; color:#475569; }
 .sidecarButtons {
-  margin-top:auto; padding-top:16px; border-top:1px solid rgba(203,213,225,0.35); display:grid; gap:8px;
+  margin-top:auto; padding-top:14px; border-top:1px solid rgba(203,213,225,0.35); display:grid; gap:8px;
 }
 
 @media (max-width: 1200px) {
