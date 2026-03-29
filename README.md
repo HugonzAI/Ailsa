@@ -97,7 +97,7 @@ Current direction by document family:
 - `app/api/sessions/route.ts`
 
 ### Core logic
-- `lib/anthropic.ts`
+- `lib/minimax.ts`
 - `lib/types.ts`
 - `lib/providers/*`
 - `lib/workspace-session.ts`
@@ -193,12 +193,12 @@ Copy `.env.example` to `.env.local` for local development.
 
 ### Required provider keys for real mode
 - `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
+- `MINIMAX_API_KEY`
 
 ### Important runtime vars
 - `MOCK_TRANSCRIPTION=0`
 - `MOCK_NOTE_GENERATION=0`
-- `ANTHROPIC_MODEL=claude-sonnet-4-6`
+- `MINIMAX_MODEL=MiniMax-M2.7`
 - optional: `OPENAI_TRANSCRIBE_MODEL=whisper-1`
 
 If mock flags are enabled, the app still works in scaffold/demo mode.

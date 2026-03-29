@@ -14,8 +14,8 @@ Current target:
 ## Current generation pipeline
 
 1. User provides transcript text (or audio -> transcription)
-2. `/api/generate-note` sends the transcript to Anthropic
-3. Anthropic is prompted to return **JSON only**
+2. `/api/generate-note` sends the transcript to MiniMax
+3. MiniMax is prompted to return **JSON only**
 4. The JSON is coerced into `StructuredCardiacNote`
 5. The UI renders the structured sections directly
 6. A plain-text ward note is also rendered from the structured object for copy/export
@@ -77,7 +77,7 @@ Rule:
 ## Prompt strategy
 
 Prompt file logic lives in:
-- `lib/anthropic.ts`
+- `lib/minimax.ts`
 
 Current strategy:
 - ask for **valid JSON only**
@@ -94,12 +94,28 @@ Current strategy:
 - post-process evidence items more aggressively than the main draft: weakly anchored or overly assertive evidence items should be dropped even if the model produced them
 - when evidence support is dropped, prefer adding a limitation note explaining that transcript detail was insufficient
 
+Important product reminder:
+- Ailsa is **not** a conversational assistant workflow
+- generation should behave like a document engine fed by transcript text
+- prompt design should therefore optimise for:
+  - stable schema fill
+  - concise ward-document phrasing
+  - document-family correctness
+  - minimal conversational filler
+  - strong omission behaviour when transcript support is weak
+
+MiniMax-specific implications:
+- prompts should stay shorter and more direct than Claude-oriented prompts
+- avoid long layered meta-instructions that encourage reasoning-style prefacing
+- downstream extraction must tolerate `<think>...</think>` or mixed reasoning + JSON output
+- post-processing should preserve document content, not rewrite it as if the model were in a chat reply mode
+
 ## Current runtime files
 
 - `app/api/generate-note/route.ts` -> note generation entrypoint
 - `app/api/transcribe/route.ts` -> transcription entrypoint
 - `app/api/sessions/route.ts` -> cloud-backed session persistence entrypoint
-- `lib/anthropic.ts` -> prompt + coercion + plain-text rendering helpers
+- `lib/minimax.ts` -> prompt + coercion + plain-text rendering helpers
 - `lib/openai.ts` -> OpenAI key helper for Whisper route
 - `lib/types.ts` -> note schema
 - `lib/workspace-session.ts` -> session schema / local-cloud merge helpers
@@ -107,7 +123,7 @@ Current strategy:
 
 ## Current provider setup
 
-- Anthropic model via direct HTTP fetch (not SDK)
+- MiniMax model via direct HTTP fetch
 - OpenAI transcription model via direct HTTP fetch (not SDK)
 - default transcription model: `whisper-1`
 - transcription model is env-overridable via `OPENAI_TRANSCRIBE_MODEL`
@@ -139,12 +155,13 @@ not in:
 
 ## Current known weakness
 
-Claude still tends to overfill `patientContext` unless tightly constrained.
+MiniMax-M2.7 tends to return reasoning text (for example `<think>...</think>`) before the final JSON, and it can also over-compress or over-generalise sections if post-processing is too aggressive.
 
 That is why:
 - we fieldized `patientContext`
 - we keep tightening prompt wording
-- next likely step is additional post-processing / field-level sanitisation
+- we extract the first valid JSON object from mixed reasoning/output responses
+- we tune post-processing conservatively so valid ward-note content is not stripped away
 
 ## Regression fixtures
 

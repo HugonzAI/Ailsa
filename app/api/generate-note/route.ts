@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDocumentType, renderStructuredOutput, sanitizeConsultantLetter, sanitizeDischargeSummary, sanitizeStructuredCardiacNote } from "@/lib/anthropic";
-import { AnthropicNoteProvider } from "@/lib/providers/anthropicNoteProvider";
+import { getDocumentType, renderStructuredOutput, sanitizeConsultantLetter, sanitizeDischargeSummary, sanitizeStructuredCardiacNote } from "@/lib/minimax";
+import { MiniMaxNoteProvider } from "@/lib/providers/minimaxNoteProvider";
 import type {
   NoteGenerationRequest,
   NoteGenerationResponse,
@@ -165,17 +165,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const provider = new AnthropicNoteProvider();
+    const provider = new MiniMaxNoteProvider();
     const result = await provider.generateNote(transcript, body.encounterType);
     return NextResponse.json({ ...result, mode: "provider" } satisfies NoteGenerationResponse);
   } catch (error) {
-    console.error("Claude note generation failed", error);
+    console.error("MiniMax note generation failed", error);
 
     if (error instanceof Error) {
-      const status = error.message.includes("ANTHROPIC_API_KEY is missing") ? 500 : 502;
+      const status = error.message.includes("MINIMAX_API_KEY is missing") ? 500 : 502;
       return NextResponse.json({ error: error.message }, { status });
     }
 
-    return NextResponse.json({ error: "Claude note generation failed." }, { status: 502 });
+    return NextResponse.json({ error: "MiniMax note generation failed." }, { status: 502 });
   }
 }

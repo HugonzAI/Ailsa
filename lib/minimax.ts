@@ -13,12 +13,12 @@ import type {
   TaskItem,
 } from "@/lib/types";
 
-export function getAnthropicApiKey() {
-  return process.env.ANTHROPIC_API_KEY || null;
+export function getMiniMaxApiKey() {
+  return process.env.MINIMAX_API_KEY || null;
 }
 
-export function getAnthropicModel() {
-  return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+export function getMiniMaxModel() {
+  return process.env.MINIMAX_MODEL || "MiniMax-M2.7";
 }
 
 export function getDocumentType(encounterType?: EncounterType | string): DocumentType {
@@ -348,10 +348,6 @@ function formatPatientContext(context: PatientContext) {
     .join("\n");
 }
 
-function formatTask(task: TaskItem) {
-  return [task.task, task.owner, task.timing, task.urgency].filter(Boolean).join(" — ");
-}
-
 function formatEvidenceItem(item: EvidenceSupportItem) {
   const meta = [item.evidenceType, item.confidence, item.citationLabel].filter(Boolean).join(" | ");
   const body = [item.claim, item.rationale].filter(Boolean).join(" — ");
@@ -359,15 +355,27 @@ function formatEvidenceItem(item: EvidenceSupportItem) {
 }
 
 function formatMedicationGroup(title: string, items: string[]) {
-  return `${title}: ${items.length ? items.join('; ') : ''}`;
+  return wrapReadableLine(`${title}: ${items.length ? items.join('; ') : ''}`);
 }
 
 function formatAssessmentPlanItem(item: ConsultantAssessmentPlanItem, index: number) {
-  return [
-    `#${index + 1} ${item.problem}`.trim(),
-    item.assessment ? `Assessment: ${item.assessment}` : "",
-    item.plan ? `Plan: ${item.plan}` : "",
-  ]
+  const assessmentLines = item.assessment
+    ? wrapReadableLine(item.assessment, 88)
+        .split("\n")
+        .filter(Boolean)
+        .map((line, i) => `${i === 0 ? "Assessment: " : "  "}${line}`)
+        .join("\n")
+    : "";
+
+  const planLines = item.plan
+    ? wrapReadableLine(item.plan, 88)
+        .split("\n")
+        .filter(Boolean)
+        .map((line, i) => `${i === 0 ? "Plan: " : "  "}${line}`)
+        .join("\n")
+    : "";
+
+  return [wrapReadableLine(`#${index + 1} ${item.problem}`.trim(), 88), assessmentLines, planLines]
     .filter(Boolean)
     .join("\n");
 }
@@ -387,21 +395,22 @@ export function renderStructuredOutput(output: StructuredOutput) {
     return [
       [output.referralContext.openingLine, output.referralContext.referrer, output.referralContext.reasonForReferral, output.referralContext.visitType]
         .filter(Boolean)
+        .map((item) => wrapReadableLine(item, 88))
         .join("\n"),
-      wrapReadableLine(output.presentingHistory || ""),
-      output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-      output.summary ? `Summary\n${wrapReadableLine(output.summary)}` : "",
+      wrapReadableLine(output.presentingHistory || "", 88),
+      output.investigations.length ? `Investigations\n${output.investigations.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+      output.summary ? `Summary\n${wrapReadableLine(output.summary, 88)}` : "",
       output.assessmentPlan.length ? `Assessment / Plan\n${output.assessmentPlan.map(formatAssessmentPlanItem).join("\n\n")}` : "",
-      output.followUp ? `Follow-up\n${output.followUp}` : "",
+      output.followUp ? `Follow-up\n${wrapReadableLine(output.followUp, 88)}` : "",
       [
-        output.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${output.cardiacRiskFactors.map((item) => `- ${item}`).join("\n")}` : "",
-        output.cardiacHistory.length ? `Cardiac History\n${output.cardiacHistory.map((item) => `- ${item}`).join("\n")}` : "",
-        output.otherMedicalHistory.length ? `Other Medical History\n${output.otherMedicalHistory.map((item) => `- ${item}`).join("\n")}` : "",
+        output.cardiacRiskFactors.length ? `Cardiac Risk Factors\n${output.cardiacRiskFactors.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.cardiacHistory.length ? `Cardiac History\n${output.cardiacHistory.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.otherMedicalHistory.length ? `Other Medical History\n${output.otherMedicalHistory.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
         medicationBlock ? `Current Medications\n${medicationBlock}` : "",
-        output.allergies.length ? `Allergies\n${output.allergies.map((item) => `- ${item}`).join("\n")}` : "",
-        output.socialHistory.length ? `Social History\n${output.socialHistory.map((item) => `- ${item}`).join("\n")}` : "",
-        output.physicalExamination ? `Physical Examination\n${output.physicalExamination}` : "",
-        output.closing || "",
+        output.allergies.length ? `Allergies\n${output.allergies.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.socialHistory.length ? `Social History\n${output.socialHistory.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.physicalExamination ? `Physical Examination\n${wrapReadableLine(output.physicalExamination, 88)}` : "",
+        wrapReadableLine(output.closing || ""),
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -413,18 +422,18 @@ export function renderStructuredOutput(output: StructuredOutput) {
 
   if (output.documentType === "cardiac_discharge_summary") {
     return [
-      output.admissionCourse ? `Admission Course\n${wrapReadableLine(output.admissionCourse)}` : "",
-      output.dischargeDiagnoses.length ? `Discharge Diagnoses\n${output.dischargeDiagnoses.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-      output.medicationChanges.length ? `Medication Changes\n${output.medicationChanges.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-      output.dischargeStatus ? `Discharge Status\n${wrapReadableLine(output.dischargeStatus)}` : "",
-      output.followUpPlans.length ? `Follow Up Plans\n${output.followUpPlans.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-      output.dischargeInstructions.length ? `Discharge Instructions\n${output.dischargeInstructions.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
+      output.admissionCourse ? `Admission Course\n${wrapReadableLine(output.admissionCourse, 88)}` : "",
+      output.dischargeDiagnoses.length ? `Discharge Diagnoses\n${output.dischargeDiagnoses.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+      output.medicationChanges.length ? `Medication Changes\n${output.medicationChanges.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+      output.dischargeStatus ? `Discharge Status\n${wrapReadableLine(output.dischargeStatus, 88)}` : "",
+      output.followUpPlans.length ? `Follow-up\n${output.followUpPlans.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+      output.dischargeInstructions.length ? `Discharge Instructions\n${output.dischargeInstructions.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
       [
-        formatPatientContext(output.patientContext) ? `Patient Context\n${formatPatientContext(output.patientContext)}` : "",
-        output.keyInvestigations.length ? `Key Investigations\n${output.keyInvestigations.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-        output.procedures.length ? `Procedures\n${output.procedures.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-        output.pendingResults.length ? `Pending Results\n${output.pendingResults.map((item) => `- ${wrapReadableLine(item)}`).join("\n")}` : "",
-        output.escalationAdvice ? `Return Advice\n${wrapReadableLine(output.escalationAdvice)}` : "",
+        formatPatientContext(output.patientContext) ? `Patient Context\n${wrapReadableLine(formatPatientContext(output.patientContext), 88)}` : "",
+        output.keyInvestigations.length ? `Key Investigations\n${output.keyInvestigations.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.procedures.length ? `Procedures\n${output.procedures.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.pendingResults.length ? `Pending Results\n${output.pendingResults.map((item) => `- ${wrapReadableLine(item, 88)}`).join("\n")}` : "",
+        output.escalationAdvice ? `Return Advice\n${wrapReadableLine(output.escalationAdvice, 88)}` : "",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -574,13 +583,15 @@ function extractNextReview(transcript: string, currentValue: string) {
 function sanitizeEvidenceSupportItems(
   items: EvidenceSupportItem[],
   transcript: string,
-  options: { mode: "inpatient" | "consultant" },
+  options: { mode: "inpatient" | "consultant" | "discharge" },
 ) {
   const lower = transcript.toLowerCase();
   const syndromeSignals =
     options.mode === "consultant"
       ? /(angina|ischaemi|chest pain|chest pressure|dyspnoea|stress test|angiography|coronary|ecg|family history|risk factor)/i
-      : /(heart failure|hfre?f|diuresis|fluid balance|telemetry|atrial fibrillation|arrhythmia|ecg|echo|troponin|congestion|renal function|electrolytes)/i;
+      : options.mode === "discharge"
+        ? /(heart failure|hfre?f|diuresis|fluid overload|atrial fibrillation|\baf\b|echo|troponin|creatinine|renal function|electrolytes|discharge|follow up|palpitations)/i
+        : /(heart failure|hfre?f|diuresis|fluid balance|telemetry|atrial fibrillation|arrhythmia|ecg|echo|troponin|congestion|renal function|electrolytes)/i;
   const hardCitationPattern = /(doi|nejm|lancet|circulation|jacc|eur heart j|pmid)/i;
 
   return items
@@ -609,6 +620,82 @@ function sanitizeEvidenceSupportItems(
 
 function appendEvidenceLimitations(existing: string[], additions: string[]) {
   return Array.from(new Set([...existing.filter(Boolean), ...additions.filter(Boolean)]));
+}
+
+function inferWardTasksFromPlan(planItems: string[], transcript: string): TaskItem[] {
+  const lower = transcript.toLowerCase();
+  const tasks: TaskItem[] = [];
+
+  const pushTask = (task: string, owner = "Medical team", timing = "Today", urgency = "") => {
+    if (!task.trim()) return;
+    if (tasks.some((item) => item.task.toLowerCase() === task.toLowerCase())) return;
+    tasks.push({ task, owner, timing, urgency });
+  };
+
+  for (const item of planItems) {
+    const normalized = item.toLowerCase();
+    if (/recheck|repeat|monitor|review|arrange|follow up|telemetry|daily|check/.test(normalized)) {
+      pushTask(item);
+    }
+  }
+
+  if (!tasks.length) {
+    if (/(recheck u&e|renal function|electrolytes|creatinine)/i.test(lower)) pushTask("Recheck U&E/Cr");
+    else if (/review tomorrow|review later|next review/i.test(lower)) pushTask("Review tomorrow");
+  }
+
+  return tasks.slice(0, 3);
+}
+
+function inferEvidenceSupportFromTranscript(
+  transcript: string,
+  options: { mode: "inpatient" | "consultant" | "discharge" },
+): EvidenceSupportItem[] {
+  const lower = transcript.toLowerCase();
+
+  if (options.mode === "inpatient") {
+    if (/(heart failure|hfre?f|diuresis|fluid overload|jvp|crackles|oedema)/i.test(lower) && /(improving|less breathless|weight is down|weight down|negative 1\.?\d*|fluid balance was negative)/i.test(lower)) {
+      return [
+        {
+          claim: "Current picture is consistent with improving decompensated heart failure after decongestive treatment.",
+          rationale: "Improving breathlessness together with decongestion signals such as weight loss, negative fluid balance, or improved congestion supports response to diuresis.",
+          evidenceType: "common-practice",
+          confidence: "medium",
+          citationLabel: "General heart failure guidance",
+        },
+      ];
+    }
+  }
+
+  if (options.mode === "consultant") {
+    if (/(chest pressure|chest discomfort|angina|dyspnoea)/i.test(lower) && /(rest|exertional|climbing stairs|mowing the lawn|bus)/i.test(lower)) {
+      return [
+        {
+          claim: "Exertional chest discomfort relieved by rest is a clinically important anginal pattern.",
+          rationale: "The transcript describes exertional symptoms with rest relief and associated cardiopulmonary symptoms, which is consistent with possible angina assessment.",
+          evidenceType: "common-practice",
+          confidence: "medium",
+          citationLabel: "General cardiology guidance",
+        },
+      ];
+    }
+  }
+
+  if (options.mode === "discharge") {
+    if (/(hfre?f|heart failure|fluid overload)/i.test(lower) && /(diuresis|improved|breathing comfortably|room air|oedema)/i.test(lower)) {
+      return [
+        {
+          claim: "Post-discharge renal and electrolyte follow-up is consistent with common safety practice after decompensated heart failure treated with diuresis.",
+          rationale: "The transcript describes heart failure treated with diuresis and ongoing discharge plans that include renal function and electrolyte review.",
+          evidenceType: "risk-flag",
+          confidence: "medium",
+          citationLabel: "General heart failure guidance",
+        },
+      ];
+    }
+  }
+
+  return [];
 }
 
 function stripTrailingPunctuation(value: string) {
@@ -706,7 +793,6 @@ function compressPlanItem(value: string) {
 function applyWardSyndromePhrases(value: string) {
   return stripTrailingPunctuation(
     value
-      // HF
       .replace(/\bfluid overloaded\b/gi, "overloaded")
       .replace(/\bstill fluid overloaded\b/gi, "still overloaded")
       .replace(/\bvolume overloaded\b/gi, "overloaded")
@@ -717,7 +803,6 @@ function applyWardSyndromePhrases(value: string) {
       .replace(/\bperipheral oedema\b/gi, "oedema")
       .replace(/\bintravenous diuresis\b/gi, "IV diuresis")
       .replace(/\biv diuresis\b/gi, "IV diuresis")
-      // ACS / chest pain
       .replace(/\bacute coronary syndrome\b/gi, "ACS")
       .replace(/\bdual antiplatelet therapy\b/gi, "DAPT")
       .replace(/\bno dynamic ecg changes?\b/gi, "ECG nil dynamic change")
@@ -727,7 +812,6 @@ function applyWardSyndromePhrases(value: string) {
       .replace(/\bserial troponins? negative\b/gi, "serial trops negative")
       .replace(/\bchest pain settled\b/gi, "CP settled")
       .replace(/\bchest pain improved\b/gi, "CP improved")
-      // AF
       .replace(/\batrial fibrillation with rapid ventricular response\b/gi, "AF with RVR")
       .replace(/\brapid ventricular response\b/gi, "RVR")
       .replace(/\brate controlled\b/gi, "rate controlled")
@@ -851,12 +935,16 @@ function applyEncounterAwareWardTone(value: string, encounterType: EncounterType
 }
 
 function splitIntoWardBullets(value: string) {
-  return value
+  const source = value.trim();
+  if (!source) return "";
+
+  const parts = source
     .split(/\n|;|,(?=\s(?:no|nil|less|more|brief|now|bp|hr|sats|oxygen|o2|afebrile|jvp|trace|bibasal|crackles|creatinine|potassium|troponin|echo|ecg|telemetry|wt|weight|cp|sob|orthopnoea|pnd|continue|monitor|recheck|repeat|consider)\b)/i)
     .map((item) => compressWardPhrase(item))
-    .filter(Boolean)
-    .slice(0, 3)
-    .join("\n");
+    .filter(Boolean);
+
+  if (!parts.length) return compressWardPhrase(source);
+  return parts.slice(0, 4).join("\n");
 }
 
 function polishWardLine(value: string) {
@@ -915,7 +1003,15 @@ function dedupeProblemList(items: string[], seen: string[]) {
   return items.filter((item) => {
     const normalized = normalizeFragment(item);
     if (!normalized) return false;
-    const duplicate = seen.some((prior) => prior === normalized || prior.includes(normalized) || normalized.includes(prior));
+
+    const duplicate = seen.some((prior) => {
+      if (!prior) return false;
+      if (prior === normalized) return true;
+      if (normalized.length >= 12 && prior.includes(normalized)) return true;
+      if (prior.length >= 12 && normalized.includes(prior)) return true;
+      return false;
+    });
+
     if (duplicate) return false;
     seen.push(normalized);
     return true;
@@ -955,7 +1051,10 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
   const hasEscalationSignal = /(escalat|safety|concern|watch closely|unstable|review urgently|if deteriorates|if worsens)/i.test(lower);
   const hasNextReviewSignal = /(review tomorrow|review later|next review|following results|after results|reassess tomorrow|within 24|24 to 48 hours|pending investigations|review after)/i.test(lower);
   const hasEvidenceContext = /(heart failure|hfre?f|diuresis|fluid balance|telemetry|atrial fibrillation|arrhythmia|ecg|echo|troponin|stress test|angiography|renal function|electrolytes)/i.test(lower);
-  const evidenceSupport = hasEvidenceContext ? sanitizeEvidenceSupportItems(note.evidenceSupport, transcript, { mode: "inpatient" }) : [];
+  const evidenceSupport = hasEvidenceContext
+    ? sanitizeEvidenceSupportItems(note.evidenceSupport, transcript, { mode: "inpatient" })
+    : [];
+  const fallbackEvidenceSupport = evidenceSupport.length ? evidenceSupport : inferEvidenceSupportFromTranscript(transcript, { mode: "inpatient" });
   const evidenceLimitations = appendEvidenceLimitations(note.evidenceLimitations, [
     !hasEvidenceContext ? "Evidence support withheld because transcript support was too limited for safe cardiology-specific rationale." : "",
     !/(ecg|echo|troponin|telemetry|creatinine|electrolytes|stress test|angiography)/i.test(lower)
@@ -963,14 +1062,28 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
       : "",
   ]);
 
+  const overnightEventsRaw = polishWardLine(applyWardSyndromePhrases(splitIntoWardBullets(note.overnightEvents)));
+  const symptomsRaw = polishWardLine(applyWardSyndromePhrases(splitIntoWardBullets(note.symptoms)));
+  const observationsRaw = polishWardLine(applyWardSyndromePhrases(splitIntoWardBullets(note.observations)));
+  const examinationRaw = polishWardLine(applyWardSyndromePhrases(splitIntoWardBullets(note.examination)));
+  const keyInvestigationsRaw = polishWardLine(applyWardSyndromePhrases(splitIntoWardBullets(note.keyInvestigations)));
+  const assessmentRaw = polishWardLine(
+    applyEncounterAwareWardTone(applySyndromeAssessmentPack(compressAssessment(note.assessment), lower), encounterType, "assessment"),
+  );
+
   const seenFragments: string[] = [];
-  const overnightEvents = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.overnightEvents)), seenFragments);
-  const symptoms = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.symptoms)), seenFragments);
-  const observations = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.observations)), seenFragments);
-  const examination = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.examination)), seenFragments);
-  const keyInvestigations = dedupeWardText(applyWardSyndromePhrases(splitIntoWardBullets(note.keyInvestigations)), seenFragments);
-  const assessment = dedupeWardText(applyEncounterAwareWardTone(applySyndromeAssessmentPack(compressAssessment(note.assessment), lower), encounterType, "assessment"), seenFragments);
-  const activeProblems = dedupeProblemList(compressProblems(note.activeProblems).map((item) => applyEncounterAwareWardTone(applySyndromeAssessmentPack(item, lower), encounterType, "assessment")), [...seenFragments]);
+  const overnightEvents = dedupeWardText(overnightEventsRaw, seenFragments) || overnightEventsRaw;
+  const symptoms = dedupeWardText(symptomsRaw, seenFragments) || symptomsRaw;
+  const observations = dedupeWardText(observationsRaw, seenFragments) || observationsRaw;
+  const examination = dedupeWardText(examinationRaw, seenFragments) || examinationRaw;
+  const keyInvestigations = dedupeWardText(keyInvestigationsRaw, seenFragments) || keyInvestigationsRaw;
+  const assessment = dedupeWardText(assessmentRaw, seenFragments) || assessmentRaw;
+  const activeProblems = dedupeProblemList(
+    compressProblems(note.activeProblems).map((item) =>
+      polishWardLine(applyEncounterAwareWardTone(applySyndromeAssessmentPack(item, lower), encounterType, "assessment")),
+    ),
+    [],
+  );
 
   return {
     ...note,
@@ -989,18 +1102,21 @@ export function sanitizeStructuredCardiacNote(note: StructuredCardiacNote, trans
     planToday: note.planToday.map((item) => polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan"))).filter(Boolean).slice(0, 5),
     nextReview: hasNextReviewSignal ? extractNextReview(transcript, note.nextReview) : "",
     escalationsSafetyConcerns: hasEscalationSignal ? compressWardPhrase(note.escalationsSafetyConcerns) : "",
-    tasksAllocated: note.tasksAllocated
-      .map((task) => ({
-        ...task,
-        task: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(task.task), lower), encounterType, "plan")),
-        owner: polishWardLine(compressWardPhrase(task.owner)),
-        timing: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressWardPhrase(task.timing), lower), encounterType, "plan")),
-        urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? polishWardLine(compressWardPhrase(task.urgency)) : "",
-      }))
-      .filter((task) => task.task),
+    tasksAllocated: (() => {
+      const explicitTasks = note.tasksAllocated
+        .map((task) => ({
+          ...task,
+          task: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(task.task), lower), encounterType, "plan")),
+          owner: polishWardLine(compressWardPhrase(task.owner)),
+          timing: polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressWardPhrase(task.timing), lower), encounterType, "plan")),
+          urgency: task.urgency && new RegExp(`\\b${task.urgency.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(transcript) ? polishWardLine(compressWardPhrase(task.urgency)) : "",
+        }))
+        .filter((task) => task.task);
+      return explicitTasks.length ? explicitTasks : inferWardTasksFromPlan(note.planToday, transcript);
+    })(),
     actionSummary: note.actionSummary.map((item) => polishWardLine(applyEncounterAwareWardTone(applySyndromePlanPack(compressPlanItem(item), lower), encounterType, "plan"))).filter(Boolean).slice(0, 4),
     dischargeConsiderations: polishWardLine(compressWardPhrase(note.dischargeConsiderations)),
-    evidenceSupport,
+    evidenceSupport: fallbackEvidenceSupport,
     evidenceLimitations,
   };
 }
@@ -1056,7 +1172,8 @@ export function sanitizeDischargeSummary(summary: StructuredDischargeSummary, tr
   const hasExplicitAdmission = /(admitted with|admitted for|reason for admission|presented with)/i.test(lower);
   const hasExplicitBackground = /(history of|past medical history|pmhx|known to have|background of|prior pci|prior cabg|known hfre?f|known hf|known af)/i.test(lower);
   const hasEvidenceContext = /(heart failure|hfre?f|arrhythmia|atrial fibrillation|\baf\b|pci|cabg|angiography|echo|renal function|electrolytes|medication change|diuresis)/i.test(lower);
-  const evidenceSupport = hasEvidenceContext ? sanitizeEvidenceSupportItems(summary.evidenceSupport, transcript, { mode: "inpatient" }) : [];
+  const evidenceSupport = hasEvidenceContext ? sanitizeEvidenceSupportItems(summary.evidenceSupport, transcript, { mode: "discharge" }) : [];
+  const fallbackEvidenceSupport = evidenceSupport.length ? evidenceSupport : inferEvidenceSupportFromTranscript(transcript, { mode: "discharge" });
   const evidenceLimitations = appendEvidenceLimitations(summary.evidenceLimitations, [
     !hasEvidenceContext ? "Evidence support withheld because discharge-specific transcript detail was limited." : "",
     !/(follow up|clinic|gp|pending|result)/i.test(lower) ? "Follow-up and pending-result detail is limited in the transcript." : "",
@@ -1080,8 +1197,12 @@ export function sanitizeDischargeSummary(summary: StructuredDischargeSummary, tr
     followUpPlans: compressStringArray(summary.followUpPlans.filter(Boolean), compressDischargeSentence),
     dischargeInstructions: compressStringArray(summary.dischargeInstructions.filter(Boolean), compressDischargeSentence),
     pendingResults: compressStringArray(summary.pendingResults.filter(Boolean), compressDischargeSentence),
-    escalationAdvice: compressDischargeSentence(summary.escalationAdvice),
-    evidenceSupport,
+    escalationAdvice: compressDischargeSentence(summary.escalationAdvice) || (/(advise return for|return for|seek urgent review if|worsening breathlessness|recurrent chest pain|palpitations)/i.test(lower)
+      ? compressDischargeSentence(
+          transcript.match(/(advise return for[^.]+|return for[^.]+|seek urgent review if[^.]+)/i)?.[0] || "",
+        )
+      : ""),
+    evidenceSupport: fallbackEvidenceSupport,
     evidenceLimitations,
   };
 }
